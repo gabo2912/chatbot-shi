@@ -1,0 +1,60 @@
+version: "3.1"
+
+# Las rules manejan patrones reactivos cortos (1–2 turnos).
+# Para flujos multi-turno con contexto, usar stories.yml.
+#
+# Las reglas con `condition: slot_was_set: flujo_actual: ninguno`
+# solo aplican cuando NO hay un flujo pedagógico activo, evitando
+# contradicciones con las stories que manejan el mismo intent dentro
+# de un flujo.
+
+rules:
+
+  # ─── Patrones invariantes (siempre misma respuesta) ───────
+
+  - rule: Responder al saludo y ofrecer opciones
+    steps:
+      - intent: saludo
+      - action: utter_saludo
+      - action: utter_ofrecer_opciones
+
+  - rule: Despedirse del usuario
+    steps:
+      - intent: despedida
+      - action: utter_despedida
+
+  - rule: Responder al agradecimiento
+    steps:
+      - intent: agradecer
+      - action: utter_agradecimiento
+
+  - rule: Pausar conversación
+    steps:
+      - intent: pausar
+      - action: utter_pausar
+
+  # ─── Patrones condicionales (solo fuera de un flujo) ──────
+
+  - rule: Redirigir mensajes fuera de tema cuando no hay flujo activo
+    condition:
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: out_of_scope
+      - action: utter_redirigir_educativo
+
+  - rule: Pedir ayuda cuando no hay flujo activo
+    condition:
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: pedir_ayuda
+      - action: utter_ayuda_general
+
+  - rule: Pedir traducción cuando no hay flujo activo
+    condition:
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: pedir_traduccion
+      - action: action_traducir

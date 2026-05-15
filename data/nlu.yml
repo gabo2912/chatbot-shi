@@ -1,0 +1,263 @@
+version: "3.1"
+
+nlu:
+
+- intent: saludo
+  examples: |
+    - hola
+    - holi
+    - hey
+    - buenas
+    - buenos días
+    - buenas tardes
+    - buenas noches
+    - quiero empezar
+    - estoy listo para aprender
+    - estoy lista para aprender
+    - empecemos
+    - quiero practicar
+    - quiero practicar shipibo
+    - quiero aprender shipibo
+    - iniciar
+    - comenzar
+    - vamos a empezar
+
+- intent: despedida
+  examples: |
+    - adiós
+    - adios
+    - chao
+    - hasta luego
+    - nos vemos
+    - terminar por ahora
+    - ya no quiero continuar
+    - gracias eso es todo
+    - me retiro
+    - luego sigo
+    - salir
+    - cerrar
+    - hasta pronto
+    - bye
+
+- intent: pedir_ayuda
+  examples: |
+    - ayúdame
+    - ayudame
+    - ayuda
+    - no entiendo
+    - explícame
+    - explicame
+    - necesito ayuda
+    - no sé qué responder
+    - dame una pista
+    - dame un ejemplo
+    - puedes ayudarme
+    - no comprendo
+    - necesito una explicación
+    - auxilio
+    - cómo funciona esto
+    - estoy perdido
+    - estoy perdida
+
+- intent: aprender_vocabulario
+  examples: |
+    - quiero aprender vocabulario
+    - quiero aprender palabras
+    - enséñame una palabra
+    - enseñame una palabra
+    - quiero practicar vocabulario
+    - aprender palabras en shipibo
+    - quiero ver palabras nuevas
+    - quiero seguir con vocabulario
+    - muéstrame una palabra
+    - muestrame una palabra
+    - quiero practicar palabras
+    - vocabulario
+    - palabras nuevas
+    - aprender más palabras
+    - enséñame palabras nuevas
+
+- intent: iniciar_cuento
+  examples: |
+    - quiero un cuento
+    - quiero escuchar una historia
+    - quiero aprender con un cuento
+    - inicia el cuento
+    - quiero explorar una historia
+    - cuéntame una historia
+    - cuentame una historia
+    - cuéntame un cuento
+    - sigamos el cuento
+    - quiero continuar la historia
+    - historia
+    - cuento
+    - empezar el cuento
+    - quiero leer la historia
+
+# responder_actividad: el intent dispara la acción de evaluación.
+# La acción lee el texto crudo (tracker.latest_message['text']) y lo
+# procesa con los módulos de evaluación/traducción.
+- intent: responder_actividad
+  examples: |
+    - agua
+    - pez
+    - mano
+    - fuego
+    - azul
+    - mujer
+    - casa
+    - sol
+    - árbol
+    - jene
+    - meken
+    - chonkon
+    - yapa
+    - bari
+    - jiwi
+    - sí conozco la palabra
+    - creo que es agua
+    - es el agua
+    - es jene
+    - mi respuesta es jene
+    - pienso que es pez
+    - probablemente sea casa
+    - es mano en shipibo
+    - la respuesta es jene
+
+- intent: pedir_traduccion
+  examples: |
+    - cómo se dice agua
+    - cómo se dice agua en shipibo
+    - traduce esta palabra
+    - qué significa esto
+    - cómo se dice en shipibo
+    - quiero traducir una palabra
+    - traduce al español
+    - cómo digo profesor
+    - quiero traducir
+    - dime cómo se dice
+    - qué significa esta palabra
+    - qué significa jene
+    - cómo se dice árbol
+    - traduce
+    - cómo se dice esto en shipibo
+    - traducción
+
+- intent: pedir_repeticion
+  examples: |
+    - repite
+    - otra vez
+    - vuelve a decirlo
+    - no lo vi bien
+    - repite la palabra
+    - repite el ejemplo
+    - puedes repetir
+    - dime otra vez
+    - muéstralo de nuevo
+    - repite por favor
+    - de nuevo
+    - una vez más
+
+- intent: confirmacion
+  examples: |
+    - sí
+    - si
+    - claro
+    - correcto
+    - está bien
+    - quiero continuar
+    - de acuerdo
+    - ok
+    - vamos
+    - perfecto
+    - entendido
+    - dale
+    - sip
+    - vale
+    - así es
+
+- intent: negacion
+  examples: |
+    - no
+    - todavía no
+    - no quiero
+    - no entendí
+    - incorrecto
+    - mejor no
+    - ahora no
+    - no gracias
+    - no deseo continuar
+    - no por ahora
+    - nope
+    - no sé
+    - no sé la respuesta
+
+- intent: expresar_emocion
+  examples: |
+    - estoy feliz
+    - tengo miedo
+    - estoy cansado
+    - estoy cansada
+    - me siento bien
+    - estoy aburrido
+    - estoy aburrida
+    - estoy emocionado
+    - estoy emocionada
+    - me siento triste
+    - estoy frustrado
+    - me cuesta mucho
+    - me siento confundido
+
+- intent: agradecer
+  examples: |
+    - gracias
+    - muchas gracias
+    - te agradezco
+    - gracias por la ayuda
+    - mil gracias
+    - gracias bot
+    - mil gracias por enseñarme
+
+- intent: continuar
+  examples: |
+    - continúa
+    - continua
+    - siguiente
+    - avancemos
+    - otra palabra
+    - sigamos
+    - quiero seguir
+    - vamos con otra
+    - pasa al siguiente
+    - continuemos
+    - quiero avanzar
+    - sigamos adelante
+    - próxima palabra
+    - dame otra
+
+- intent: pausar
+  examples: |
+    - espera
+    - detente
+    - luego sigo
+    - pausa
+    - dame un momento
+    - aguarda
+    - detente un momento
+    - regreso luego
+
+- intent: out_of_scope
+  examples: |
+    - cuéntame un chiste
+    - qué hora es
+    - quiero jugar fútbol
+    - háblame de otra cosa
+    - quién eres
+    - abre youtube
+    - dame una receta
+    - quiero escuchar música
+    - calcula mi tarea
+    - háblame de películas
+    - cuál es la capital de Perú
+    - qué clima hace hoy
+    - resuélveme un problema de matemáticas

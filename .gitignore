@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging and build artifacts
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Rasa artifacts
+models/
+.rasa/
+*.db
+events.db
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+temp/
+
+# Local secrets and overrides
+.env
+.env.*
+*.local.yml
+credentials.local.yml
+endpoints.local.yml

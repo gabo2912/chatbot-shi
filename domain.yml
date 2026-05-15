@@ -1,0 +1,133 @@
+version: "3.1"
+
+# ============================================================
+# INTENTS
+# ============================================================
+intents:
+  - saludo
+  - despedida
+  - pedir_ayuda
+  - aprender_vocabulario
+  - iniciar_cuento
+  - responder_actividad
+  - pedir_traduccion
+  - pedir_repeticion
+  - confirmacion
+  - negacion
+  - expresar_emocion
+  - agradecer
+  - continuar
+  - pausar
+  - out_of_scope
+
+entities: []
+
+# ============================================================
+# SLOTS — estado conversacional persistente
+# ============================================================
+slots:
+
+  flujo_actual:
+    type: categorical
+    values:
+      - vocabulario
+      - cuento
+      - ninguno
+    initial_value: ninguno
+    influence_conversation: true
+    mappings:
+      - type: custom
+
+  palabra_actual:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  categoria_actual:
+    type: categorical
+    values:
+      - naturaleza
+      - animales
+      - cuerpo
+      - objetos
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  fragmento_actual:
+    type: float
+    initial_value: 0
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  ultima_respuesta_bot:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  intentos_palabra:
+    type: float
+    initial_value: 0
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+# ============================================================
+# RESPONSES — texto fijo del bot
+# ============================================================
+responses:
+
+  utter_saludo:
+    - text: "¡Hola! Soy tu asistente para aprender shipibo-konibo. 🌿"
+    - text: "¡Bienvenido/a! Estoy aquí para acompañarte a aprender shipibo."
+
+  utter_ofrecer_opciones:
+    - text: "¿Qué te gustaría hacer hoy? Puedes (1) aprender vocabulario nuevo o (2) explorar un cuento interactivo."
+
+  utter_despedida:
+    - text: "¡Hasta pronto! Sigue practicando shipibo. 🌟"
+    - text: "Nos vemos. Recuerda que aprender un idioma es un viaje."
+
+  utter_agradecimiento:
+    - text: "¡De nada! 🙂 Estoy aquí para apoyarte."
+
+  utter_ayuda_general:
+    - text: "Claro, te puedo ayudar. Puedes pedirme aprender vocabulario, iniciar un cuento o traducir una palabra. ¿Qué prefieres?"
+
+  utter_redirigir_educativo:
+    - text: "Eso está fuera de lo que puedo enseñarte ahora. Sigamos con tu aprendizaje de shipibo. ¿Quieres practicar vocabulario o un cuento?"
+
+  utter_pausar:
+    - text: "Está bien, hagamos una pausa. Cuando quieras continuar, solo escríbeme."
+
+  utter_empatia:
+    - text: "Te entiendo. Aprender un idioma toma tiempo, vamos a tu ritmo. 🌱"
+
+  utter_default:
+    - text: "Disculpa, no entendí del todo. ¿Puedes decirlo de otra forma?"
+
+# ============================================================
+# ACTIONS — acciones personalizadas (en actions/actions.py)
+# ============================================================
+actions:
+  - action_iniciar_vocabulario
+  - action_siguiente_palabra
+  - action_evaluar_respuesta_vocab
+  - action_dar_pista_vocab
+  - action_repetir_ultima_palabra
+  - action_continuar_vocabulario
+  - action_iniciar_cuento
+  - action_siguiente_fragmento
+  - action_evaluar_respuesta_cuento
+  - action_dar_ayuda_cuento
+  - action_repetir_fragmento
+  - action_continuar_cuento
+  - action_traducir
+  - action_retomar_flujo
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
