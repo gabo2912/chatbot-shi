@@ -1,0 +1,176 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# DATASET DE EVALUACIÓN NLU — Chatbot Educativo Shipibo-Konibo
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Propósito:
+#   Conjunto de prueba con 100 frases en español NUEVAS (no usadas en el
+#   entrenamiento del modelo NLU en data/nlu.yml). Sirve para medir
+#   empíricamente la precisión del clasificador de intenciones de Rasa.
+#
+# Cobertura:
+#   20 frases por cada uno de los 5 intents más críticos del sistema:
+#     - saludo
+#     - aprender_vocabulario
+#     - responder_actividad
+#     - pedir_ayuda
+#     - continuar
+#
+# Uso:
+#   Desde la raíz del proyecto Rasa, ejecutar:
+#     rasa test nlu --nlu test_nlu.yml
+#
+#   Rasa generará reportes en results/ con precisión, recall, F1 e
+#   intent_errors.json indicando qué frases se clasificaron mal.
+#
+# Indicador objetivamente verificable (R7 del SRS):
+#   Precisión mínima del 80% sobre las 100 frases.
+#
+# Convención:
+#   Cada frase está pensada para imitar variaciones reales de hablantes
+#   (formales, informales, con typos típicos, con sinónimos, con redundancias),
+#   sin replicar literalmente ninguna frase del archivo de entrenamiento.
+# ═══════════════════════════════════════════════════════════════════════════
+
+version: "3.1"
+
+nlu:
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: saludo  (20 frases)
+# Variaciones: saludos casuales, saludos con verbo "estar", señales de
+# disponibilidad ("aquí estoy"), saludos al bot directamente, expresiones
+# de regreso, indicaciones informales de inicio.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: saludo
+  examples: |
+    - qué tal
+    - saludos
+    - holaaa
+    - cómo estás
+    - cómo te encuentras
+    - buen día
+    - hola bot
+    - buenos días Claude
+    - qué onda
+    - estás ahí
+    - estás conectado
+    - hola hola
+    - buenos días bot
+    - ya estoy aquí
+    - regresé
+    - de vuelta
+    - comencemos ya
+    - arranquemos
+    - dale, empecemos
+    - con ganas de aprender
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: aprender_vocabulario  (20 frases)
+# Variaciones: solicitudes con verbo distinto, modos imperativos suaves,
+# referencias a categorías específicas con expresiones nuevas, peticiones
+# de aumento del léxico, intención implícita.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: aprender_vocabulario
+  examples: |
+    - enséñame palabras shipibo
+    - quiero saber palabras nuevas
+    - dame palabras para aprender
+    - necesito aprender vocabulario
+    - quisiera practicar palabras
+    - me interesa aprender vocabulario
+    - modo vocabulario por favor
+    - activa vocabulario
+    - hoy quiero ver palabras
+    - quiero aumentar mi vocabulario
+    - enséñame algo nuevo
+    - dame palabras nuevas para hoy
+    - quiero ver palabras de la selva
+    - enséñame palabras del cuerpo humano
+    - dame palabras sobre objetos
+    - quiero aprender colores en shipibo
+    - ahora veamos animales
+    - probemos con naturaleza
+    - categoría animales por favor
+    - quiero estudiar vocabulario
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: responder_actividad  (20 frases)
+# Cobertura mixta: palabras del corpus en español, palabras del corpus en
+# shipibo, letras de opción múltiple, frases completas con la respuesta
+# embebida, expresiones de duda con respuesta final.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: responder_actividad
+  examples: |
+    - tortuga
+    - árbol
+    - diría que es tortuga
+    - negro
+    - perro
+    - jiwi
+    - bari
+    - ochiti
+    - panshin
+    - yapa
+    - opción a por favor
+    - yo creo que es agua
+    - es la tortuga
+    - tiene que ser árbol
+    - la verdad no sé pero diré perro
+    - respondo árbol
+    - mi respuesta sería jiwi
+    - pongo bari
+    - selecciono la b
+    - dije la c
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: pedir_ayuda  (20 frases)
+# Variaciones: expresiones de bloqueo, dudas técnicas sobre el sistema,
+# pedidos de pistas más explícitos, manifestaciones de confusión.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: pedir_ayuda
+  examples: |
+    - necesito una pista
+    - me podrías ayudar
+    - cómo se hace esto
+    - estoy confundido
+    - estoy confundida
+    - no me sale
+    - no sé qué responder
+    - dame una mano
+    - quiero un hint
+    - una pista por favor
+    - apóyame con esta
+    - no entiendo esta parte
+    - tengo muchas dudas
+    - me explicas
+    - cómo respondo
+    - qué hago aquí
+    - estoy atorado
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: continuar  (20 frases)
+# Variaciones: peticiones explícitas de avance, expresiones de cierre y
+# avance ("listo, sigue"), peticiones de más actividades, formas elididas.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: continuar
+  examples: |
+    - próximo
+    - la siguiente
+    - dale siguiente
+    - siga
+    - avancemos a la siguiente
+    - ya, sigamos
+    - siguiente pregunta
+    - más, dame más
+    - otra
+    - dale, otra
+    - una más
+    - continúa por favor
+    - dame la próxima
+    - ya está, sigue
+    - ok, avancemos
+    - paso al siguiente
+    - listo, avanza
+    - quiero más actividades
+    - dame otra palabra para practicar
+    - próxima por favor

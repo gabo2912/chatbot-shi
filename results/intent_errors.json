@@ -1,0 +1,258 @@
+[
+  {
+    "text": "hi",
+    "intent": "saludo",
+    "intent_prediction": {
+      "name": "confirmacion",
+      "confidence": 0.8888527154922485
+    }
+  },
+  {
+    "text": "vamos a darle",
+    "intent": "saludo",
+    "intent_prediction": {
+      "name": "continuar",
+      "confidence": 0.999691367149353
+    }
+  },
+  {
+    "text": "Jawekeskarin",
+    "intent": "saludo",
+    "intent_prediction": {
+      "name": "confirmacion",
+      "confidence": 0.5686392188072205
+    }
+  },
+  {
+    "text": "¡jawekeskararin! ¿jakontanirin mia?",
+    "intent": "saludo",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.6809183955192566
+    }
+  },
+  {
+    "text": "¡jawekeskarin! ¿jawekeskarin mia?",
+    "intent": "saludo",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.9688236713409424
+    }
+  },
+  {
+    "text": "Jakon yantan",
+    "intent": "saludo",
+    "intent_prediction": {
+      "name": "despedida",
+      "confidence": 0.8479118347167969
+    }
+  },
+  {
+    "text": "tal vez sea piti",
+    "intent": "responder_actividad",
+    "intent_prediction": {
+      "name": "saludo",
+      "confidence": 0.5194814205169678
+    }
+  },
+  {
+    "text": "la verdad no sé pero diré perro",
+    "intent": "responder_actividad",
+    "intent_prediction": {
+      "name": "pedir_ayuda",
+      "confidence": 0.9999818801879883
+    }
+  },
+  {
+    "text": "yapa",
+    "intent": "responder_actividad",
+    "intent_prediction": {
+      "name": "saludo",
+      "confidence": 0.9913978576660156
+    }
+  },
+  {
+    "text": "me cuesta mucho",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "iniciar_cuento",
+      "confidence": 0.6921356916427612
+    }
+  },
+  {
+    "text": "quiero un hint",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "iniciar_cuento",
+      "confidence": 0.5337013006210327
+    }
+  },
+  {
+    "text": "estoy bloqueada",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "expresar_emocion",
+      "confidence": 0.9042126536369324
+    }
+  },
+  {
+    "text": "cómo respondo",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.9892241358757019
+    }
+  },
+  {
+    "text": "estoy atorado",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "expresar_emocion",
+      "confidence": 0.9979027509689331
+    }
+  },
+  {
+    "text": "¡Akinwe!",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "despedida",
+      "confidence": 0.3805733025074005
+    }
+  },
+  {
+    "text": "Ea akinwe",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.7332628965377808
+    }
+  },
+  {
+    "text": "Eara akinkanti kewanke",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "continuar",
+      "confidence": 0.8962799906730652
+    }
+  },
+  {
+    "text": "Nonra akinkanti kenai",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "negacion",
+      "confidence": 0.8930521011352539
+    }
+  },
+  {
+    "text": "Enra akinti kenai",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.5717021226882935
+    }
+  },
+  {
+    "text": "¡Eara akinkanti kenai!",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "continuar",
+      "confidence": 0.41489177942276
+    }
+  },
+  {
+    "text": "mia akinkanti manawe",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.8836302161216736
+    }
+  },
+  {
+    "text": "¿Min ea akinti atipana?",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.34790027141571045
+    }
+  },
+  {
+    "text": "Min akintira ea keni kai",
+    "intent": "pedir_ayuda",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.7542935013771057
+    }
+  },
+  {
+    "text": "dame otra palabra para practicar",
+    "intent": "continuar",
+    "intent_prediction": {
+      "name": "aprender_vocabulario",
+      "confidence": 0.7966645359992981
+    }
+  },
+  {
+    "text": "Kabanon",
+    "intent": "despedida",
+    "intent_prediction": {
+      "name": "pedir_ayuda",
+      "confidence": 0.9999902248382568
+    }
+  },
+  {
+    "text": "¡Eara jopariai!",
+    "intent": "despedida",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.9594298601150513
+    }
+  },
+  {
+    "text": "¡Irake!",
+    "intent": "agradecer",
+    "intent_prediction": {
+      "name": "despedida",
+      "confidence": 0.7357431650161743
+    }
+  },
+  {
+    "text": "Ichabires irake",
+    "intent": "agradecer",
+    "intent_prediction": {
+      "name": "despedida",
+      "confidence": 0.6062566041946411
+    }
+  },
+  {
+    "text": "¡Irake jakiribi!",
+    "intent": "agradecer",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.6345887184143066
+    }
+  },
+  {
+    "text": "mia kopira en ake",
+    "intent": "agradecer",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.6411370038986206
+    }
+  },
+  {
+    "text": "irake min aka kopi",
+    "intent": "agradecer",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.7152550220489502
+    }
+  },
+  {
+    "text": "¿Min jakiribi yoiti atipana?",
+    "intent": "pedir_repeticion",
+    "intent_prediction": {
+      "name": "responder_actividad",
+      "confidence": 0.5692116618156433
+    }
+  }
+]

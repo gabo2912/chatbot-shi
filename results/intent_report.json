@@ -1,0 +1,96 @@
+{
+  "despedida": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1-score": 0.0,
+    "support": 2,
+    "confused_with": {
+      "responder_actividad": 1,
+      "pedir_ayuda": 1
+    }
+  },
+  "pedir_ayuda": {
+    "precision": 0.8823529411764706,
+    "recall": 0.5172413793103449,
+    "f1-score": 0.6521739130434783,
+    "support": 29,
+    "confused_with": {
+      "responder_actividad": 6,
+      "iniciar_cuento": 2
+    }
+  },
+  "pedir_repeticion": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1-score": 0.0,
+    "support": 1,
+    "confused_with": {
+      "responder_actividad": 1
+    }
+  },
+  "responder_actividad": {
+    "precision": 0.5666666666666667,
+    "recall": 0.85,
+    "f1-score": 0.68,
+    "support": 20,
+    "confused_with": {
+      "saludo": 2,
+      "pedir_ayuda": 1
+    }
+  },
+  "agradecer": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1-score": 0.0,
+    "support": 5,
+    "confused_with": {
+      "responder_actividad": 3,
+      "despedida": 2
+    }
+  },
+  "saludo": {
+    "precision": 0.9,
+    "recall": 0.75,
+    "f1-score": 0.8181818181818182,
+    "support": 24,
+    "confused_with": {
+      "responder_actividad": 2,
+      "confirmacion": 2
+    }
+  },
+  "continuar": {
+    "precision": 0.8636363636363636,
+    "recall": 0.95,
+    "f1-score": 0.9047619047619048,
+    "support": 20,
+    "confused_with": {
+      "aprender_vocabulario": 1
+    }
+  },
+  "aprender_vocabulario": {
+    "precision": 0.9523809523809523,
+    "recall": 1.0,
+    "f1-score": 0.975609756097561,
+    "support": 20,
+    "confused_with": {}
+  },
+  "micro avg": {
+    "precision": 0.7807017543859649,
+    "recall": 0.7355371900826446,
+    "f1-score": 0.7574468085106383,
+    "support": 121
+  },
+  "macro avg": {
+    "precision": 0.5206296154825566,
+    "recall": 0.5084051724137931,
+    "f1-score": 0.5038409240105952,
+    "support": 121
+  },
+  "weighted avg": {
+    "precision": 0.7838174789074157,
+    "recall": 0.7355371900826446,
+    "f1-score": 0.7417920688579654,
+    "support": 121
+  },
+  "accuracy": 0.7355371900826446
+}

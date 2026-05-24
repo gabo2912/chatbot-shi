@@ -7,7 +7,7 @@ Asistente conversacional en espanol para practicar vocabulario en shipibo-konibo
 Este proyecto implementa un MVP educativo con Rasa 3.x que incluye:
 
 - flujo de aprendizaje de vocabulario contextualizado,
-- flujo narrativo por fragmentos (cuento del pescador shipibo),
+- flujo narrativo por fragmentos
 - acciones personalizadas para evaluar respuestas, dar pistas y retomar contexto.
 
 ## Stack y requisitos

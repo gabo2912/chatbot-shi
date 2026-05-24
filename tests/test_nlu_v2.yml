@@ -1,0 +1,201 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# DATASET DE EVALUACIÓN NLU v2 — Chatbot Educativo Shipibo-Konibo
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Versión 2: conjunto INDEPENDIENTE del training v2 (Camino A).
+#
+# Contenido:
+#   - 100 frases en español NUEVAS, sin overlap con el training v2.
+#     Algunas son frases regeneradas porque las del v1 quedaron en
+#     training durante la iteración previa (57% → 75%).
+#   - 21 frases en shipibo-konibo extraídas y validadas de
+#     saludos_cortesia.csv y ayuda_interaccion.csv.
+#
+# Propósito metodológico:
+#   - Las 100 frases español miden la generalización REAL del modelo
+#     post-incorporación del corpus y frases del CSV, sin contaminación.
+#   - Las 21 frases shipibo funcionan como test EXPLORATORIO: el modelo
+#     Camino A no fue entrenado en shipibo conversacional, por lo que
+#     fallará la mayoría. Esto es la línea base que justifica
+#     empíricamente la siguiente iteración (Camino B con bilingüismo).
+#
+# Lectura recomendada de resultados:
+#   Separar reporte por idioma. La métrica español es la que se compara
+#   contra el indicador del R7 (≥80%). La métrica shipibo es informativa.
+# ═══════════════════════════════════════════════════════════════════════════
+
+version: "3.1"
+
+nlu:
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: saludo  (24 frases: 20 español nuevas + 4 shipibo)
+# Todas las del v1 quedaron en training, regeneradas completamente.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: saludo
+  examples: |
+    - wenas
+    - buena día
+    - muy buenas
+    - buenísimas
+    - hi
+    - hellou
+    - vamos chatbot
+    - te saludo
+    - saludo cordial
+    - saludos cordiales
+    - wenos días
+    - buenas y santas
+    - muy buenas tardes
+    - qué hubo
+    - hola amigo bot
+    - hola estimado bot
+    - iniciemos la sesión
+    - vamos a darle
+    - preparado para hoy
+    - comencemos esta sesión
+    - Jawekeskarin
+    - ¡jawekeskararin! ¿jakontanirin mia?
+    - ¡jawekeskarin! ¿jawekeskarin mia?
+    - Jakon yantan
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: aprender_vocabulario  (20 frases, solo español)
+# ─────────────────────────────────────────────────────────────────────────
+- intent: aprender_vocabulario
+  examples: |
+    - enséñame palabras shipibo
+    - quiero saber palabras nuevas
+    - dame palabras para aprender
+    - necesito aprender vocabulario
+    - quisiera practicar palabras
+    - me interesa aprender vocabulario
+    - modo vocabulario por favor
+    - activa vocabulario
+    - hoy quiero ver palabras
+    - quiero aumentar mi vocabulario
+    - enséñame algo nuevo
+    - dame palabras nuevas para hoy
+    - quiero ver palabras de la selva
+    - enséñame palabras del cuerpo humano
+    - dame palabras sobre objetos
+    - quiero aprender colores en shipibo
+    - ahora veamos animales
+    - probemos con naturaleza
+    - categoría animales por favor
+    - quiero estudiar vocabulario
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: responder_actividad  (20 frases, solo español)
+# 7 frases reemplazadas porque las palabras del corpus quedaron en training.
+# Se usan frases con estructura "respuesta embebida" que no están en train.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: responder_actividad
+  examples: |
+    - podría ser luna
+    - respondería ave
+    - elijo opción b
+    - diría chaira
+    - creo que se dice mariposa
+    - tal vez sea piti
+    - mi opción final es shobo
+    - diría que es tortuga
+    - opción a por favor
+    - yo creo que es agua
+    - es la tortuga
+    - tiene que ser árbol
+    - la verdad no sé pero diré perro
+    - respondo árbol
+    - mi respuesta sería jiwi
+    - pongo bari
+    - selecciono la b
+    - dije la c
+    - jiwi
+    - yapa
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: pedir_ayuda  (29 frases: 20 español + 9 shipibo)
+# 5 frases español reemplazadas por estar en training.
+# ─────────────────────────────────────────────────────────────────────────
+- intent: pedir_ayuda
+  examples: |
+    - ayudita por favor
+    - no encuentro la respuesta
+    - podrías guiarme
+    - no sé cómo seguir
+    - no entiendo qué hacer
+    - estoy confundido
+    - estoy confundida
+    - me cuesta mucho
+    - dame una mano
+    - quiero un hint
+    - una pista por favor
+    - apóyame con esta
+    - no entiendo esta parte
+    - estoy bloqueada
+    - estoy bloqueado
+    - tengo muchas dudas
+    - me explicas
+    - cómo respondo
+    - qué hago aquí
+    - estoy atorado
+    - ¡Akinwe!
+    - Ea akinwe
+    - Eara akinkanti kewanke
+    - Nonra akinkanti kenai
+    - Enra akinti kenai
+    - ¡Eara akinkanti kenai!
+    - mia akinkanti manawe
+    - ¿Min ea akinti atipana?
+    - Min akintira ea keni kai
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENT: continuar  (20 frases, solo español)
+# ─────────────────────────────────────────────────────────────────────────
+- intent: continuar
+  examples: |
+    - próximo
+    - la siguiente
+    - dale siguiente
+    - siga
+    - avancemos a la siguiente
+    - ya, sigamos
+    - siguiente pregunta
+    - más, dame más
+    - otra
+    - dale, otra
+    - una más
+    - continúa por favor
+    - dame la próxima
+    - ya está, sigue
+    - ok, avancemos
+    - paso al siguiente
+    - listo, avanza
+    - quiero más actividades
+    - dame otra palabra para practicar
+    - próxima por favor
+
+# ─────────────────────────────────────────────────────────────────────────
+# INTENTS BILINGÜES EXPLORATORIOS — solo frases shipibo del CSV
+# Estos intents tendrán bajo recall en Camino A. Es esperado.
+# ─────────────────────────────────────────────────────────────────────────
+
+# INTENT: despedida  (2 frases shipibo)
+- intent: despedida
+  examples: |
+    - Kabanon
+    - ¡Eara jopariai!
+
+# INTENT: agradecer  (5 frases shipibo)
+- intent: agradecer
+  examples: |
+    - ¡Irake!
+    - Ichabires irake
+    - ¡Irake jakiribi!
+    - mia kopira en ake
+    - irake min aka kopi
+
+# INTENT: pedir_repeticion  (1 frase shipibo)
+- intent: pedir_repeticion
+  examples: |
+    - ¿Min jakiribi yoiti atipana?
