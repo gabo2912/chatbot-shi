@@ -36,8 +36,6 @@ from db import (
     registrar_intento,
     registrar_fragmento_cuento,
     ultima_posicion,
-    get_resumen_categorias,
-    get_resumen_cuento,
 )
 
 
@@ -176,45 +174,47 @@ class ValidateActividadForm(FormValidationAction):
         if not texto:
             return {"respuesta_actividad": None}
 
+        # FIX: texto_norm y tokens deben definirse ANTES de cualquier uso.
+        # (Antes se usaban en PATRONES_CAMBIO antes de existir -> UnboundLocalError.)
+        texto_norm = normalizar(texto)
+        tokens = texto_norm.split()
+
         # Detectar intención de cambiar actividad o categoría:
         # cubre tanto la clasificación correcta como la misclasificación como saludo.
+        # NOTA: los patrones van SIN tilde porque texto_norm ya está normalizado
+        # (normalizar() elimina tildes); con tilde nunca coincidirían.
         PATRONES_CAMBIO = (
             "quiero aprender", "quiero practicar", "aprender vocabulario",
             "practicar vocabulario", "cambiar categoria", "otra categoria",
-            "cambiar de categoria", "categoría", "animales", "colores",
+            "cambiar de categoria", "categoria", "animales", "colores",
             "naturaleza", "objetos", "cuerpo", "quiero un cuento",
-            "iniciar cuento", "cuéntame"
+            "iniciar cuento", "cuentame",
         )
-        texto_norm_check = texto_norm
 
         es_cambio_contexto = (
             intent in {"iniciar_cuento", "aprender_vocabulario"} and confianza >= 0.6
         ) or (
             # Captura misclasificaciones cuando el texto claramente pide cambio
-            any(p in texto_norm_check for p in PATRONES_CAMBIO)
+            any(p in texto_norm for p in PATRONES_CAMBIO)
             and len(tokens) > 1
         )
 
         if es_cambio_contexto:
-            if intent == "iniciar_cuento" or "cuento" in texto_norm_check:
+            if intent == "iniciar_cuento" or "cuento" in texto_norm:
                 dispatcher.utter_message(
                     text=(
-                        "Para ir al cuento, primero escribe **pausa** "
+                        "Termina esta palabra o escribe **pausa** "
                         "para salir de la actividad actual. 📖"
                     )
                 )
             else:
                 dispatcher.utter_message(
                     text=(
-                        "Para cambiar de categoría, primero escribe **pausa** "
+                        "Termina esta palabra o escribe **pausa** "
                         "para salir de la actividad actual. 🔄"
                     )
                 )
             return {"respuesta_actividad": None}
-
-
-        texto_norm = normalizar(texto)
-        tokens = texto_norm.split()
 
         ayuda_explicita = {
             "ayuda", "ayudame", "pista", "hint",
@@ -243,8 +243,8 @@ class ValidateActividadForm(FormValidationAction):
 
         # Caso ayuda/pista: dar pista real, no mensaje genérico
         if es_ayuda or (
-            intent in {"pedir_ayuda", "expresar_emocion"} 
-            and confianza >= 0.75 
+            intent in {"pedir_ayuda", "expresar_emocion"}
+            and confianza >= 0.75
             and len(tokens) > 1
         ):
             categoria = tracker.get_slot("categoria_actual") or "naturaleza"
@@ -269,12 +269,11 @@ class ValidateActividadForm(FormValidationAction):
                 dispatcher.utter_message(text="Repito la pregunta: escribe tu respuesta.")
             return {"respuesta_actividad": None}
 
-        # Caso pausa/despedida clara
+        # Caso pausa/despedida clara.
+        # Se devuelve un valor centinela para que el form cierre y
+        # action_evaluar_respuesta_vocab limpie el flujo.
         if es_pausa or es_despedida:
-            dispatcher.utter_message(
-                text="De acuerdo, pausamos la actividad. Cuando quieras continuar, escribe 'continuar'."
-            )
-            return {"respuesta_actividad": None}
+            return {"respuesta_actividad": "__pausa__"}
 
         # Si no es una interrupción clara, se considera respuesta,
         # aunque DIET la haya clasificado como saludo, pausar o despedida.
@@ -343,26 +342,6 @@ class ActionIniciarVocabulario(Action):
             return []
 
         palabra = palabras[0]
-        # Proponer continuar donde quedó si tiene historial
-        ultima = ultima_posicion(tracker.sender_id)
-        if ultima and "otra" not in texto and "nueva" not in texto:
-            ult_cat, ult_pal = ultima
-            if ult_cat != categoria or True:  # siempre preguntar para que sea explícito
-                dispatcher.utter_message(
-                    text=f"¡Bienvenido de vuelta! 👋 La última vez estabas en "
-                         f"**{ult_cat}** con la palabra *{ult_pal}*. ¿Continuamos ahí?",
-                    buttons=[
-                        {"title": f"Continuar con {ult_cat}", "payload": f"quiero practicar {ult_cat}"},
-                        {"title": "Empezar desde el inicio", "payload": f"quiero practicar {categoria}"},
-                    ]
-                )
-                return [
-                    SlotSet("flujo_actual", "vocabulario"),
-                    SlotSet("categoria_actual", ult_cat),
-                    SlotSet("palabra_actual", ult_pal),
-                    SlotSet("intentos_palabra", 0),
-                    SlotSet("respuesta_actividad", None),
-                ]
 
         mensaje = (
             f"¡Vamos a practicar vocabulario! 🌿\n"
@@ -416,6 +395,23 @@ class ActionEvaluarRespuestaVocab(Action):
         if not texto:
             texto = (tracker.latest_message or {}).get("text", "")
 
+        # Flujo básico: si el usuario pausa dentro del form, se cierra
+        # la actividad y se limpia el contexto para evitar predicciones cruzadas.
+        if texto == "__pausa__":
+            mensaje = (
+                "Actividad pausada. Para iniciar de nuevo, escribe "
+                "**aprender vocabulario** o **quiero un cuento**."
+            )
+            dispatcher.utter_message(text=mensaje)
+            return [
+                SlotSet("respuesta_actividad", None),
+                SlotSet("flujo_actual", "ninguno"),
+                SlotSet("palabra_actual", None),
+                SlotSet("categoria_actual", None),
+                SlotSet("intentos_palabra", 0),
+                SlotSet("ultima_respuesta_bot", mensaje),
+            ]
+
         categoria = tracker.get_slot("categoria_actual") or "naturaleza"
         palabra_es = tracker.get_slot("palabra_actual") or ""
         intentos = int(tracker.get_slot("intentos_palabra") or 0)
@@ -437,8 +433,7 @@ class ActionEvaluarRespuestaVocab(Action):
             )
             dispatcher.utter_message(text=mensaje, buttons=[
                 {"title": "Siguiente palabra", "payload": "continuar"},
-                {"title": "Otra categoría",    "payload": "otra categoría"},
-                {"title": "Ir al cuento",      "payload": "quiero un cuento"},
+                {"title": "Pausar", "payload": "pausa"},
             ])
             return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
 
@@ -452,7 +447,6 @@ class ActionEvaluarRespuestaVocab(Action):
             )
             dispatcher.utter_message(text=mensaje, buttons=[
                 {"title": "Siguiente palabra", "payload": "continuar"},
-                {"title": "Intentarlo de nuevo", "payload": "lo intento otra vez"},
             ])
             return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
 
@@ -481,7 +475,6 @@ class ActionEvaluarRespuestaVocab(Action):
         )
         dispatcher.utter_message(text=mensaje, buttons=[
             {"title": "Siguiente palabra", "payload": "continuar"},
-            {"title": "Ver mi progreso",   "payload": "ver mi progreso"},
         ])
         return eventos_base + [
             SlotSet("intentos_palabra", intentos),
@@ -528,7 +521,7 @@ class ActionContinuarVocabulario(Action):
             mensaje = f"Volvamos a lo nuestro. ¿Cómo se dice **{palabra}** en shipibo?"
             dispatcher.utter_message(text=mensaje)
             return [SlotSet("ultima_respuesta_bot", mensaje)]
-        dispatcher.utter_message(text="¿Quieres aprender vocabulario o un cuento?")
+        dispatcher.utter_message(text="Escribe **aprender vocabulario** para iniciar una práctica.")
         return []
 
 
@@ -718,73 +711,4 @@ class ActionRetomarFlujo(Action):
             mensaje = "¿Continuamos con el cuento? Dime 'sí' o 'continuar'."
             dispatcher.utter_message(text=mensaje)
             return [SlotSet("ultima_respuesta_bot", mensaje)]
-        return []
-
-class ActionVerProgreso(Action):
-    """
-    Genera un reporte de progreso del usuario leyendo desde la DB.
-    Se activa cuando el usuario escribe 'ver mi progreso' o hace clic
-    en el botón correspondiente del frontend.
-    """
-
-    def name(self) -> Text:
-        return "action_ver_progreso"
-
-    def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
-            domain: Dict[Text, Any]) -> List[EventType]:
-
-        sid = tracker.sender_id
-        cats = get_resumen_categorias(sid)
-        cuentos = get_resumen_cuento(sid)
-
-        tiene_datos = any(c["dominadas"] > 0 or c["porcentaje"] > 0 for c in cats)
-
-        if not tiene_datos and not cuentos:
-            dispatcher.utter_message(
-                text=(
-                    "Aún no tienes progreso registrado. 🌱\n"
-                    "¡Empieza practicando vocabulario o explorando el cuento!"
-                ),
-                buttons=[
-                    {"title": "Aprender vocabulario", "payload": "quiero aprender vocabulario"},
-                    {"title": "Explorar cuento",      "payload": "quiero un cuento"},
-                ]
-            )
-            return []
-
-        lineas = ["📊 **Tu progreso en Vocabulario:**\n"]
-        for c in cats:
-            barra = "█" * (c["porcentaje"] // 10) + "░" * (10 - c["porcentaje"] // 10)
-            lineas.append(
-                f"{c['emoji']} **{c['categoria'].capitalize()}**: "
-                f"{c['dominadas']}/{c['total']} palabras — {c['porcentaje']}%\n"
-                f"   {barra}"
-            )
-
-        if cuentos:
-            lineas.append("\n📖 **Cuentos:**")
-            for cu in cuentos:
-                lineas.append(
-                    f"• El pescador shipibo: {cu['completados']} fragmentos completados"
-                )
-
-        total_dom = sum(c["dominadas"] for c in cats)
-        total_pal = sum(c["total"] for c in cats)
-        pct_global = round(total_dom / total_pal * 100) if total_pal else 0
-        lineas.append(f"\n🏆 **Total dominado: {total_dom}/{total_pal} palabras ({pct_global}%)**")
-
-        if pct_global >= 80:
-            lineas.append("\n¡Excelente trabajo! 🎉 Casi dominas todo el vocabulario.")
-        elif pct_global >= 50:
-            lineas.append("\n¡Vas muy bien! 💪 Sigue así.")
-        else:
-            lineas.append("\nSigue practicando, cada palabra cuenta. 🌱")
-
-        dispatcher.utter_message(
-            text="\n".join(lineas),
-            buttons=[
-                {"title": "Seguir practicando", "payload": "quiero aprender vocabulario"},
-                {"title": "Ir al cuento",        "payload": "quiero un cuento"},
-            ]
-        )
         return []

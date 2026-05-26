@@ -399,6 +399,7 @@ let senderID  = localStorage.getItem('pishico_sender_id')  || '';
 let userName  = localStorage.getItem('pishico_nombre')      || '';
 let userEmail = localStorage.getItem('pishico_email')       || '';
 let progreso  = JSON.parse(localStorage.getItem('pishico_progreso') || '{}');
+let primeraVista = true;  // evita enviar msg de Rasa al cargar la vista inicial
 // progreso = { naturaleza: {dominadas:0, total:11}, animales: {...}, ... }
 
 const TOTAL_PALABRAS = {
@@ -443,8 +444,18 @@ function registrar() {
 
 function iniciarApp() {
   actualizarSidebar();
-  // Saludo inicial
-  setTimeout(() => enviarARasa('hola'), 300);
+  // Limpiar estado anterior en Rasa y luego saludar
+  setTimeout(async () => {
+    // /restart limpia el contexto de la sesión anterior sin mostrar mensaje
+    try {
+      await fetch(RASA, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: senderID, message: '/restart' })
+      });
+    } catch(_) {}
+    enviarARasa('hola');
+  }, 400);
 }
 
 function actualizarSidebar() {
@@ -468,14 +479,14 @@ function setVista(vista) {
     panelProg.classList.remove('visible');
     titulo.textContent    = 'Aprendizaje de Vocabulario';
     subtitulo.textContent = 'Shipibo-Konibo';
-    enviarARasa('quiero aprender vocabulario');
+    if (!primeraVista) enviarARasa('quiero aprender vocabulario');
   } else if (vista === 'cuento') {
     document.getElementById('btn-cuento').classList.add('active');
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
     titulo.textContent    = 'Cuento Interactivo';
     subtitulo.textContent = 'El Pescador Shipibo';
-    enviarARasa('quiero un cuento');
+    if (!primeraVista) enviarARasa('quiero un cuento');
   } else if (vista === 'progreso') {
     document.getElementById('btn-progreso').classList.add('active');
     chatView.style.display = 'none';
