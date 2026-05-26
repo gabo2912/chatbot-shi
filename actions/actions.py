@@ -1,46 +1,45 @@
 """
 Acciones personalizadas para el chatbot educativo shipibo-konibo.
 
-NOTA: Este archivo contiene STUBS FUNCIONALES con un vocabulario y un cuento
-embebidos para poder probar las stories de inmediato. Cuando los módulos
-reales del proyecto estén listos (corpus curado, traductor, evaluador,
-corrector ortográfico), reemplazar las funciones marcadas con `# TODO: real`.
+Arquitectura:
+  - El corpus léxico se carga dinámicamente desde actions/corpus/palabras.xlsx
+    a través de corpus_loader.py (fuente única de verdad, validada por experto).
+  - El cuento interactivo usa las grafías canónicas del corpus validado.
+  - La evaluación de respuestas considera variantes ortográficas aceptadas
+    por el asesor lingüístico.
 """
 
 from typing import Any, Text, Dict, List
 import unicodedata
 
-from rasa_sdk import Action, Tracker
+from rasa_sdk import Action, Tracker, FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from rasa_sdk.events import SlotSet, EventType
+from rasa_sdk.types import DomainDict
+from rasa_sdk.events import SlotSet, EventType, FollowupAction
 
+# Asegurar que el directorio de actions/ esté en sys.path
+# para que corpus_loader sea importable sin importar cómo Rasa carga el paquete.
+import sys as _sys
+import os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 
-# ════════════════════════════════════════════════════════════════════
-# DATOS DE EJEMPLO (reemplazar por corpus curado real)
-# ════════════════════════════════════════════════════════════════════
+from corpus_loader import (
+    VOCABULARIO,
+    DICCIONARIO,
+    encontrar_palabra,
+    siguiente_palabra,
+    traducir as _traducir_corpus,
+    corpus_disponible,
+)
 
-VOCABULARIO: Dict[str, List[Dict[str, str]]] = {
-    "naturaleza": [
-        {"es": "agua",  "shp": "jene",  "pista": "Sin esto no podemos vivir, fluye en los ríos."},
-        {"es": "sol",   "shp": "bari",  "pista": "Está en el cielo durante el día y da calor."},
-        {"es": "árbol", "shp": "jiwi",  "pista": "Crece alto en la selva y tiene hojas."},
-    ],
-    "animales": [
-        {"es": "pez",   "shp": "yapa",   "pista": "Vive en el agua y se pesca en el río."},
-        {"es": "perro", "shp": "ochiti", "pista": "Animal doméstico que ladra."},
-    ],
-    "cuerpo": [
-        {"es": "mano", "shp": "meken", "pista": "La usamos para escribir y agarrar cosas."},
-        {"es": "ojo",  "shp": "bero",  "pista": "Con esto vemos el mundo."},
-    ],
-}
+from db import (
+    registrar_intento,
+    registrar_fragmento_cuento,
+    ultima_posicion,
+    get_resumen_categorias,
+    get_resumen_cuento,
+)
 
-# Diccionario plano bidireccional (construido desde el vocabulario)
-DICCIONARIO: Dict[str, str] = {}
-for _palabras in VOCABULARIO.values():
-    for _p in _palabras:
-        DICCIONARIO[_p["es"].lower()] = _p["shp"]
-        DICCIONARIO[_p["shp"].lower()] = _p["es"]
 
 
 CUENTO_PESCADOR: List[Dict[str, Any]] = [
@@ -50,7 +49,7 @@ CUENTO_PESCADOR: List[Dict[str, Any]] = [
             "Cada mañana iba al río con su canoa para pescar."
         ),
         "pregunta": "En este fragmento aparece el río. ¿Cómo se dice 'agua' en shipibo?",
-        "respuesta_esperada": "jene",
+        "respuesta_esperada": "jene",     # nat_001 — grafía canónica validada
         "ayuda": "El río está lleno de *agua*. En shipibo, *agua* se dice 'jene'.",
     },
     {
@@ -59,8 +58,8 @@ CUENTO_PESCADOR: List[Dict[str, Any]] = [
             "Un día vio un pez grande y brillante."
         ),
         "pregunta": "¿Cómo se dice 'pez' en shipibo?",
-        "respuesta_esperada": "yapa",
-        "ayuda": "Recuerda: el animal que Ronin pesca se llama 'yapa' en shipibo.",
+        "respuesta_esperada": "waka",     # ani_001 — grafía canónica validada (era 'yapa')
+        "ayuda": "Recuerda: el animal que Ronin pesca se llama 'waka' en shipibo.",
     },
     {
         "texto": (
@@ -68,8 +67,8 @@ CUENTO_PESCADOR: List[Dict[str, Any]] = [
             "las palabras antiguas de la selva.'"
         ),
         "pregunta": "Ronin usa sus *manos* para soltar al pez. ¿Cómo se dice 'mano' en shipibo?",
-        "respuesta_esperada": "meken",
-        "ayuda": "La parte del cuerpo con la que agarramos cosas se dice 'meken'.",
+        "respuesta_esperada": "meno",     # cuer_001 — grafía canónica validada (era 'meken')
+        "ayuda": "La parte del cuerpo con la que agarramos cosas se dice 'meno'.",
     },
     {
         "texto": (
@@ -101,47 +100,192 @@ def normalizar(texto: str) -> str:
     return t.strip()
 
 
-def evaluar_respuesta(usuario: str, esperada: str) -> str:
-    """Devuelve 'correcto' | 'parcial' | 'incorrecto'.
+def evaluar_respuesta(
+    usuario: str,
+    esperada: str,
+    variantes: List[str] = None
+) -> str:
+    """
+    Devuelve 'correcto' | 'parcial' | 'incorrecto'.
 
-    TODO: real — reemplazar por módulo de evaluación contextual + corrector
-    ortográfico cuando esté listo.
+    Considera:
+    - Coincidencia exacta normalizada con la forma canónica.
+    - Coincidencia con cualquiera de las variantes aceptadas por el asesor.
+    - Coincidencia parcial (la palabra esperada aparece dentro del input).
     """
     if not usuario or not esperada:
         return "incorrecto"
     u, e = normalizar(usuario), normalizar(esperada)
     if u == e:
         return "correcto"
+    # Verificar variantes ortográficas aceptadas
+    if variantes:
+        for v in variantes:
+            if v and normalizar(v) == u:
+                return "correcto"
     if e in u.split() or e in u:
         return "parcial"
     return "incorrecto"
 
 
-def traducir(palabra: str) -> str:
-    """Traducción simple ES⇄SHP por diccionario.
 
-    TODO: real — reemplazar por módulo traductor del proyecto.
+
+# ════════════════════════════════════════════════════════════════════
+# FORM — ACTIVIDAD DE VOCABULARIO (Camino 2)
+# ════════════════════════════════════════════════════════════════════
+
+# Durante una actividad, estos intents NO se consideran respuesta:
+# son interrupciones que deben atenderse sin evaluar el texto como answer.
+INTENTS_INTERRUPCION = {
+    "pedir_ayuda",
+    "pedir_repeticion",
+    "pedir_traduccion",
+    "expresar_emocion",
+    "negacion",
+    "despedida",
+    "pausar",
+}
+
+
+class ValidateActividadForm(FormValidationAction):
+    """Valida el slot respuesta_actividad capturado por from_text.
+
+    Camino 2:
+    - Si el alumno escribe una respuesta corta como "jene" o "yapa",
+      se guarda como respuesta aunque el NLU haya predicho otro intent.
+    - Si el alumno interrumpe con "ayuda", "estoy confundido", "repítelo",
+      no se evalúa como respuesta; se da apoyo y se vuelve a pedir respuesta.
     """
-    return DICCIONARIO.get(normalizar(palabra), "")
+
+    def name(self) -> Text:
+        return "validate_actividad_form"
+
+    def validate_respuesta_actividad(
+        self,
+        slot_value: Any,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: DomainDict,
+    ) -> Dict[Text, Any]:
+        intent_data = tracker.latest_message.get("intent") or {}
+        intent = intent_data.get("name")
+        confianza = intent_data.get("confidence", 0.0)
+
+        texto = (slot_value or "").strip()
+
+        if not texto:
+            return {"respuesta_actividad": None}
+
+        # Detectar intención de cambiar actividad o categoría:
+        # cubre tanto la clasificación correcta como la misclasificación como saludo.
+        PATRONES_CAMBIO = (
+            "quiero aprender", "quiero practicar", "aprender vocabulario",
+            "practicar vocabulario", "cambiar categoria", "otra categoria",
+            "cambiar de categoria", "categoría", "animales", "colores",
+            "naturaleza", "objetos", "cuerpo", "quiero un cuento",
+            "iniciar cuento", "cuéntame"
+        )
+        texto_norm_check = texto_norm
+
+        es_cambio_contexto = (
+            intent in {"iniciar_cuento", "aprender_vocabulario"} and confianza >= 0.6
+        ) or (
+            # Captura misclasificaciones cuando el texto claramente pide cambio
+            any(p in texto_norm_check for p in PATRONES_CAMBIO)
+            and len(tokens) > 1
+        )
+
+        if es_cambio_contexto:
+            if intent == "iniciar_cuento" or "cuento" in texto_norm_check:
+                dispatcher.utter_message(
+                    text=(
+                        "Para ir al cuento, primero escribe **pausa** "
+                        "para salir de la actividad actual. 📖"
+                    )
+                )
+            else:
+                dispatcher.utter_message(
+                    text=(
+                        "Para cambiar de categoría, primero escribe **pausa** "
+                        "para salir de la actividad actual. 🔄"
+                    )
+                )
+            return {"respuesta_actividad": None}
 
 
-def encontrar_palabra(categoria: str, es: str) -> Dict[str, str]:
-    """Busca el diccionario completo de una palabra en una categoría."""
-    for p in VOCABULARIO.get(categoria, []):
-        if p["es"] == es:
-            return p
-    return {}
+        texto_norm = normalizar(texto)
+        tokens = texto_norm.split()
 
+        ayuda_explicita = {
+            "ayuda", "ayudame", "pista", "hint",
+            "dame pista", "dame una pista",
+            "no se", "no entiendo", "me cuesta"
+        }
 
-def siguiente_palabra(categoria: str, palabra_actual: str) -> Dict[str, str]:
-    """Devuelve la siguiente palabra en la categoría (rota al inicio si llega al final)."""
-    palabras = VOCABULARIO.get(categoria, [])
-    if not palabras:
-        return {}
-    for i, p in enumerate(palabras):
-        if p["es"] == palabra_actual:
-            return palabras[(i + 1) % len(palabras)]
-    return palabras[0]
+        repeticion_explicita = {
+            "repite", "repitelo", "otra vez",
+            "puedes repetir", "vuelve a decirlo"
+        }
+
+        pausa_explicita = {
+            "pausa", "pausar", "salir",
+            "luego sigo", "despues sigo", "me voy"
+        }
+
+        despedida_explicita = {
+            "chao", "chau", "adios", "hasta luego"
+        }
+
+        es_ayuda = texto_norm in ayuda_explicita
+        es_repeticion = texto_norm in repeticion_explicita
+        es_pausa = texto_norm in pausa_explicita
+        es_despedida = texto_norm in despedida_explicita
+
+        # Caso ayuda/pista: dar pista real, no mensaje genérico
+        if es_ayuda or (
+            intent in {"pedir_ayuda", "expresar_emocion"} 
+            and confianza >= 0.75 
+            and len(tokens) > 1
+        ):
+            categoria = tracker.get_slot("categoria_actual") or "naturaleza"
+            palabra_es = tracker.get_slot("palabra_actual") or ""
+            info = encontrar_palabra(categoria, palabra_es)
+            pista = info.get("pista", "Piensa en el contexto de la palabra.")
+
+            dispatcher.utter_message(
+                text=(
+                    f"💡 Pista para **{palabra_es}**: {pista}\n"
+                    f"¿Cómo se dice **{palabra_es}** en shipibo?"
+                )
+            )
+            return {"respuesta_actividad": None}
+
+        # Caso repetición clara
+        if es_repeticion:
+            ultima = tracker.get_slot("ultima_respuesta_bot")
+            if ultima:
+                dispatcher.utter_message(text=f"Lo repito:\n\n{ultima}")
+            else:
+                dispatcher.utter_message(text="Repito la pregunta: escribe tu respuesta.")
+            return {"respuesta_actividad": None}
+
+        # Caso pausa/despedida clara
+        if es_pausa or es_despedida:
+            dispatcher.utter_message(
+                text="De acuerdo, pausamos la actividad. Cuando quieras continuar, escribe 'continuar'."
+            )
+            return {"respuesta_actividad": None}
+
+        # Si no es una interrupción clara, se considera respuesta,
+        # aunque DIET la haya clasificado como saludo, pausar o despedida.
+        entidades = [
+            e.get("value")
+            for e in tracker.latest_message.get("entities", [])
+            if e.get("entity") == "palabra_objetivo" and e.get("value")
+        ]
+
+        respuesta = entidades[0] if entidades else texto
+        return {"respuesta_actividad": respuesta}
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -154,19 +298,88 @@ class ActionIniciarVocabulario(Action):
 
     def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
             domain: Dict[Text, Any]) -> List[EventType]:
-        categoria = "naturaleza"
-        palabra = VOCABULARIO[categoria][0]
+
+        # Verificar que el corpus esté cargado antes de acceder
+        if not corpus_disponible():
+            dispatcher.utter_message(
+                text=(
+                    "⚠️ El corpus no está disponible.\n"
+                    "Verificá que el archivo *palabras.xlsx* esté en "
+                    "la carpeta *actions/corpus/*."
+                )
+            )
+            return []
+
+        # Determinar categoría: la que el usuario mencionó, la siguiente,
+        # o la primera disponible como fallback.
+        texto = (tracker.latest_message or {}).get("text", "").lower()
+        CATEGORIAS_VALIDAS = [c for c in VOCABULARIO.keys() if VOCABULARIO.get(c)]
+
+        # 1) Categoría mencionada explícitamente en el texto
+        categoria = None
+        for cat in CATEGORIAS_VALIDAS:
+            if cat in texto:
+                categoria = cat
+                break
+
+        # 2) "otra", "diferente", "siguiente", "cambiar" → avanzar a la siguiente
+        if categoria is None and any(p in texto for p in ("otra", "diferente", "siguiente", "cambiar", "nuevo")):
+            cat_actual = tracker.get_slot("categoria_actual") or CATEGORIAS_VALIDAS[0]
+            if cat_actual in CATEGORIAS_VALIDAS:
+                idx = CATEGORIAS_VALIDAS.index(cat_actual)
+                categoria = CATEGORIAS_VALIDAS[(idx + 1) % len(CATEGORIAS_VALIDAS)]
+            else:
+                categoria = CATEGORIAS_VALIDAS[0]
+
+        # 3) Fallback: primera categoría disponible
+        if categoria is None:
+            categoria = CATEGORIAS_VALIDAS[0]
+
+        palabras = VOCABULARIO.get(categoria, [])
+        if not palabras:
+            dispatcher.utter_message(
+                text=f"No encontré palabras en la categoría *{categoria}*. Probemos con otra."
+            )
+            return []
+
+        palabra = palabras[0]
+        # Proponer continuar donde quedó si tiene historial
+        ultima = ultima_posicion(tracker.sender_id)
+        if ultima and "otra" not in texto and "nueva" not in texto:
+            ult_cat, ult_pal = ultima
+            if ult_cat != categoria or True:  # siempre preguntar para que sea explícito
+                dispatcher.utter_message(
+                    text=f"¡Bienvenido de vuelta! 👋 La última vez estabas en "
+                         f"**{ult_cat}** con la palabra *{ult_pal}*. ¿Continuamos ahí?",
+                    buttons=[
+                        {"title": f"Continuar con {ult_cat}", "payload": f"quiero practicar {ult_cat}"},
+                        {"title": "Empezar desde el inicio", "payload": f"quiero practicar {categoria}"},
+                    ]
+                )
+                return [
+                    SlotSet("flujo_actual", "vocabulario"),
+                    SlotSet("categoria_actual", ult_cat),
+                    SlotSet("palabra_actual", ult_pal),
+                    SlotSet("intentos_palabra", 0),
+                    SlotSet("respuesta_actividad", None),
+                ]
+
         mensaje = (
             f"¡Vamos a practicar vocabulario! 🌿\n"
             f"Categoría: *{categoria}*\n\n"
             f"¿Cómo se dice **{palabra['es']}** en shipibo?"
         )
-        dispatcher.utter_message(text=mensaje)
+        dispatcher.utter_message(text=mensaje, buttons=[
+            {"title": "Dame una pista", "payload": "dame una pista"},
+            {"title": "Saltar palabra",  "payload": "continuar"},
+        ])
         return [
             SlotSet("flujo_actual", "vocabulario"),
             SlotSet("categoria_actual", categoria),
             SlotSet("palabra_actual", palabra["es"]),
+            SlotSet("fragmento_actual", 0),
             SlotSet("intentos_palabra", 0),
+            SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
@@ -187,6 +400,7 @@ class ActionSiguientePalabra(Action):
         return [
             SlotSet("palabra_actual", nueva["es"]),
             SlotSet("intentos_palabra", 0),
+            SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
@@ -196,49 +410,83 @@ class ActionEvaluarRespuestaVocab(Action):
         return "action_evaluar_respuesta_vocab"
 
     def run(self, dispatcher, tracker, domain):
-        texto = (tracker.latest_message or {}).get("text", "")
+        # Camino 2: la respuesta llega desde el slot capturado por from_text.
+        # Fallback al último texto para conservar compatibilidad con pruebas antiguas.
+        texto = tracker.get_slot("respuesta_actividad")
+        if not texto:
+            texto = (tracker.latest_message or {}).get("text", "")
+
         categoria = tracker.get_slot("categoria_actual") or "naturaleza"
         palabra_es = tracker.get_slot("palabra_actual") or ""
         intentos = int(tracker.get_slot("intentos_palabra") or 0)
 
         info = encontrar_palabra(categoria, palabra_es)
         esperada_shp = info.get("shp", "")
-        resultado = evaluar_respuesta(texto, esperada_shp)
+        variantes    = info.get("variantes", [])
+        resultado = evaluar_respuesta(texto, esperada_shp, variantes)
+
+        eventos_base = [SlotSet("respuesta_actividad", None)]
 
         if resultado == "correcto":
+            registrar_intento(
+                tracker.sender_id, categoria, palabra_es, esperada_shp, "correcto", intentos + 1
+            )
             mensaje = (
                 f"¡Excelente! ✅ '**{palabra_es}**' en shipibo es '**{esperada_shp}**'.\n"
-                f"¿Continuamos con otra palabra?"
+                f"¿Seguimos?"
             )
-            dispatcher.utter_message(text=mensaje)
-            return [SlotSet("ultima_respuesta_bot", mensaje)]
+            dispatcher.utter_message(text=mensaje, buttons=[
+                {"title": "Siguiente palabra", "payload": "continuar"},
+                {"title": "Otra categoría",    "payload": "otra categoría"},
+                {"title": "Ir al cuento",      "payload": "quiero un cuento"},
+            ])
+            return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
 
         if resultado == "parcial":
+            registrar_intento(
+                tracker.sender_id, categoria, palabra_es, esperada_shp, "parcial", intentos + 1
+            )
             mensaje = (
                 f"Casi. 🤏 Te acercaste, pero la respuesta exacta es '**{esperada_shp}**'.\n"
-                f"¿Quieres intentar con otra palabra?"
+                f"¿Seguimos?"
             )
-            dispatcher.utter_message(text=mensaje)
-            return [SlotSet("ultima_respuesta_bot", mensaje)]
+            dispatcher.utter_message(text=mensaje, buttons=[
+                {"title": "Siguiente palabra", "payload": "continuar"},
+                {"title": "Intentarlo de nuevo", "payload": "lo intento otra vez"},
+            ])
+            return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
 
-        # incorrecto
+        # Incorrecto: en el primer error se da pista y se reactiva el form para
+        # capturar el siguiente intento con from_text. En el segundo error,
+        # se revela la respuesta y se espera confirmación/continuar.
         intentos += 1
         if intentos < 2:
             mensaje = (
                 f"No es esa. 💡 Pista: {info.get('pista', 'piensa en su uso cotidiano.')}\n"
                 f"¿Cómo se dice **{palabra_es}** en shipibo?"
             )
-        else:
-            mensaje = (
-                f"No te preocupes. La respuesta correcta es '**{esperada_shp}**'. 🌱\n"
-                f"¿Pasamos a otra palabra?"
-            )
-        dispatcher.utter_message(text=mensaje)
-        return [
+            dispatcher.utter_message(text=mensaje)
+            return eventos_base + [
+                SlotSet("intentos_palabra", intentos),
+                SlotSet("ultima_respuesta_bot", mensaje),
+                FollowupAction("actividad_form"),
+            ]
+
+        registrar_intento(
+            tracker.sender_id, categoria, palabra_es, esperada_shp, "incorrecto", intentos + 1
+        )
+        mensaje = (
+            f"No te preocupes. La respuesta correcta es '**{esperada_shp}**'. 🌱\n"
+            f"¿Pasamos a otra palabra?"
+        )
+        dispatcher.utter_message(text=mensaje, buttons=[
+            {"title": "Siguiente palabra", "payload": "continuar"},
+            {"title": "Ver mi progreso",   "payload": "ver mi progreso"},
+        ])
+        return eventos_base + [
             SlotSet("intentos_palabra", intentos),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
-
 
 class ActionDarPistaVocab(Action):
     def name(self) -> Text:
@@ -304,6 +552,10 @@ class ActionIniciarCuento(Action):
         return [
             SlotSet("flujo_actual", "cuento"),
             SlotSet("fragmento_actual", float(idx)),
+            SlotSet("palabra_actual", None),
+            SlotSet("categoria_actual", None),
+            SlotSet("intentos_palabra", 0),
+            SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
@@ -350,13 +602,18 @@ class ActionEvaluarRespuestaCuento(Action):
             return []
 
         resultado = evaluar_respuesta(texto, esperada)
+        registrar_fragmento_cuento(
+            tracker.sender_id, "pescador_shipibo", idx, resultado == "correcto"
+        )
         if resultado == "correcto":
             mensaje = f"¡Muy bien! ✅ '{esperada}' es la palabra correcta. Sigamos con la historia."
         elif resultado == "parcial":
             mensaje = f"Te acercaste. 🤏 La respuesta es '{esperada}'. Continuemos."
         else:
             mensaje = f"No exactamente. La palabra que buscábamos era '{esperada}'. 🌱 Sigamos."
-        dispatcher.utter_message(text=mensaje)
+        dispatcher.utter_message(text=mensaje, buttons=[
+            {"title": "Continuar historia", "payload": "continuar"},
+        ])
         return [SlotSet("ultima_respuesta_bot", mensaje)]
 
 
@@ -430,7 +687,7 @@ class ActionTraducir(Action):
             )
             return []
         palabra = candidatas[-1]
-        traduccion = traducir(palabra)
+        traduccion = _traducir_corpus(palabra)
         if traduccion:
             dispatcher.utter_message(text=f"🔄 '{palabra}' se traduce como '**{traduccion}**'.")
         else:
@@ -461,4 +718,73 @@ class ActionRetomarFlujo(Action):
             mensaje = "¿Continuamos con el cuento? Dime 'sí' o 'continuar'."
             dispatcher.utter_message(text=mensaje)
             return [SlotSet("ultima_respuesta_bot", mensaje)]
+        return []
+
+class ActionVerProgreso(Action):
+    """
+    Genera un reporte de progreso del usuario leyendo desde la DB.
+    Se activa cuando el usuario escribe 'ver mi progreso' o hace clic
+    en el botón correspondiente del frontend.
+    """
+
+    def name(self) -> Text:
+        return "action_ver_progreso"
+
+    def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
+            domain: Dict[Text, Any]) -> List[EventType]:
+
+        sid = tracker.sender_id
+        cats = get_resumen_categorias(sid)
+        cuentos = get_resumen_cuento(sid)
+
+        tiene_datos = any(c["dominadas"] > 0 or c["porcentaje"] > 0 for c in cats)
+
+        if not tiene_datos and not cuentos:
+            dispatcher.utter_message(
+                text=(
+                    "Aún no tienes progreso registrado. 🌱\n"
+                    "¡Empieza practicando vocabulario o explorando el cuento!"
+                ),
+                buttons=[
+                    {"title": "Aprender vocabulario", "payload": "quiero aprender vocabulario"},
+                    {"title": "Explorar cuento",      "payload": "quiero un cuento"},
+                ]
+            )
+            return []
+
+        lineas = ["📊 **Tu progreso en Vocabulario:**\n"]
+        for c in cats:
+            barra = "█" * (c["porcentaje"] // 10) + "░" * (10 - c["porcentaje"] // 10)
+            lineas.append(
+                f"{c['emoji']} **{c['categoria'].capitalize()}**: "
+                f"{c['dominadas']}/{c['total']} palabras — {c['porcentaje']}%\n"
+                f"   {barra}"
+            )
+
+        if cuentos:
+            lineas.append("\n📖 **Cuentos:**")
+            for cu in cuentos:
+                lineas.append(
+                    f"• El pescador shipibo: {cu['completados']} fragmentos completados"
+                )
+
+        total_dom = sum(c["dominadas"] for c in cats)
+        total_pal = sum(c["total"] for c in cats)
+        pct_global = round(total_dom / total_pal * 100) if total_pal else 0
+        lineas.append(f"\n🏆 **Total dominado: {total_dom}/{total_pal} palabras ({pct_global}%)**")
+
+        if pct_global >= 80:
+            lineas.append("\n¡Excelente trabajo! 🎉 Casi dominas todo el vocabulario.")
+        elif pct_global >= 50:
+            lineas.append("\n¡Vas muy bien! 💪 Sigue así.")
+        else:
+            lineas.append("\nSigue practicando, cada palabra cuenta. 🌱")
+
+        dispatcher.utter_message(
+            text="\n".join(lineas),
+            buttons=[
+                {"title": "Seguir practicando", "payload": "quiero aprender vocabulario"},
+                {"title": "Ir al cuento",        "payload": "quiero un cuento"},
+            ]
+        )
         return []

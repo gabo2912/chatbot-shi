@@ -1,60 +1,617 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# nlu.yml — Chatbot Educativo Shipibo-Konibo  ·  Training v3 (Camino 2)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# CAMBIOS RESPECTO A v2 (refinamiento Camino A, pre-bilingüismo):
+#
+# 1. responder_actividad: se ELIMINARON las 105 palabras sueltas (54 es + 51 shp).
+#    Eran el ~40% de todo el training y convertían al intent en un "imán" que
+#    capturaba cualquier input corto (hi, wenas -> responder_actividad @1.0).
+#    Se conservan/expanden SOLO patrones de oración ("respuesta embebida").
+#    El corpus validado por el especialista NO se pierde: pasa a la lookup
+#    table `palabra_objetivo` al final del archivo (ver nota técnica).
+#
+# 2. Patrones de respuesta embebida añadidos ("elijo la opción X",
+#    "selecciono la X", "podría ser X", "respondo que es X", ...). Son cadenas
+#    NUEVAS, estructuralmente paralelas a las del test pero no idénticas,
+#    para medir generalización real sin recontaminar train/test.
+#
+# 3. Rebalanceo: +ejemplos a intents pequeños. Ratio máx/mín pasó de ~14:1 a ~4:1.
+#
+# 4. Desambiguaciones de taxonomía (decisiones de diseño, ver chat):
+#    - pedir_ayuda QUEDA como dueño de "confundido / atorado / bloqueado /
+#      me cuesta". Se quitaron de expresar_emocion "me cuesta mucho" y
+#      "me siento confundido" (contradecían el test). expresar_emocion
+#      queda solo con estados afectivos puros.
+#    - saludo dejó de contener peticiones de aprendizaje
+#      ("quiero aprender shipibo", "quiero practicar shipibo" -> aprender_vocabulario).
+#    - "quiero continuar" movido de confirmacion -> continuar.
+#    - "luego sigo" estaba DUPLICADO en despedida y pausar: queda solo en pausar.
+#    - negacion: se quitaron "no sé" y "no sé la respuesta" (no son negaciones;
+#      causaban colisión con pedir_ayuda/responder_actividad).
+#
+# NOTA: el test_nlu_v2.yml NO se modificó. Sigue siendo conjunto independiente.
+# ═══════════════════════════════════════════════════════════════════════════
+
 version: "3.1"
 
-# Las rules manejan patrones reactivos cortos (1–2 turnos).
-# Para flujos multi-turno con contexto, usar stories.yml.
+nlu:
+
+- intent: saludo
+  examples: |
+    - hola
+    - holi
+    - hey
+    - buenas
+    - buenos días
+    - buenas tardes
+    - buenas noches
+    - que tal
+    - saludos
+    - holaaa
+    - cómo estás
+    - cómo te encuentras
+    - buen día
+    - hola bot
+    - qué onda
+    - estás ahí
+    - estás conectado
+    - hola hola
+    - buenos días bot
+    - ya estoy aquí
+    - regresé
+    - de vuelta
+    - ¡Hola! ¿Cómo estás?
+    - ¡Hola! ¿Qué tal estás?
+    # --- v3: saludos cortos / coloquiales (combaten hi/wenas -> responder_actividad)
+    - wena
+    - ola
+    - hello
+    - holaa
+    - epa
+    - buenas a todos
+    - buenas bot
+    - qué tal bot
+    - qué dice
+    - saludos a ti
+    - buenos días chatbot
+    - aquí estoy de nuevo
+    - volví
+
+- intent: despedida
+  examples: |
+    - adiós
+    - adios
+    - chao
+    - hasta luego
+    - nos vemos
+    - terminar por ahora
+    - ya no quiero continuar
+    - gracias eso es todo
+    - me retiro
+    - salir
+    - cerrar
+    - hasta pronto
+    - bye
+    - ¡Hasta luego!
+    # --- v3
+    - me voy
+    - hasta la próxima
+    - terminemos aquí
+    - fue suficiente por hoy
+    - nos vemos luego
+
+- intent: pedir_ayuda
+  examples: |
+    - ayúdame
+    - ayudame
+    - ayuda
+    - no entiendo
+    - explícame
+    - explicame
+    - necesito ayuda
+    - no sé qué responder
+    - dame una pista
+    - dame un ejemplo
+    - puedes ayudarme
+    - no comprendo
+    - necesito una explicación
+    - auxilio
+    - cómo funciona esto
+    - estoy perdido
+    - estoy perdida
+    - necesito una pista
+    - me podrías ayudar
+    - cómo se hace esto
+    - no me sale
+    - no se
+    - que hago
+    - ¿Podrías por favor ayudarme?
+    - ¡Ayuda!
+    - Necesitaba ayuda.
+    - Necesitamos ayuda.
+    - ¡Necesito ayuda!
+    - Espero tu ayuda.
+    - ¿Puedes ayudarme?
+    - Podría necesitar tu ayuda.
+    # --- v3: clúster "atascado / confundido" (pedir_ayuda es el dueño de esto)
+    - no entendí
+    - estoy trabado
+    - me siento perdido
+    - me siento perdida
+    - no me queda claro
+    - esto me confunde
+    - se me complica
+    - no logro entenderlo
+    - me trabé
+    - ando perdido
+    - esto está difícil para mí
+    - tengo dudas
+    - tengo una duda
+    - no me sale esto
+    - necesito una mano
+    - dame una pista para esto
+    - no sé qué hacer aquí
+    - no hallo la respuesta
+    - no doy con la respuesta
+    - no se me ocurre nada
+    - no entiendo esta pregunta
+    - ayúdame con esta pregunta
+    - puedes darme una pista
+    - estoy en blanco
+    - no puedo con esto
+    - qué debo hacer
+    - guíame por favor
+
+- intent: aprender_vocabulario
+  examples: |
+    - quiero aprender vocabulario
+    - quiero aprender palabras
+    - enséñame una palabra
+    - enseñame una palabra
+    - quiero practicar vocabulario
+    - aprender palabras en shipibo
+    - quiero ver palabras nuevas
+    - quiero seguir con vocabulario
+    - muéstrame una palabra
+    - muestrame una palabra
+    - quiero practicar palabras
+    - vocabulario
+    - palabras nuevas
+    - aprender más palabras
+    - enséñame palabras nuevas
+    - quiero aprender colores
+    - quiero aprender colores en shipibo
+    - quiero practicar colores
+    - ahora quiero colores
+    - quiero aprender animales
+    - quiero practicar animales
+    - ahora animales
+    - quiero aprender cuerpo
+    - quiero practicar cuerpo humano
+    - quiero aprender objetos
+    - quiero practicar objetos
+    - quiero aprender naturaleza
+    - otra categoría
+    - otra categoria
+    - cambia la categoría
+    - quiero cambiar de categoría
+    - siguiente categoría
+    - dame otra categoría
+    # --- v3: peticiones de aprendizaje movidas desde saludo
+    - quiero aprender shipibo
+    - quiero practicar shipibo
+    # --- v3: peticiones por categoría
+    - quiero aprender los colores
+    - enséñame los animales
+    - enséñame palabras de la naturaleza
+    - veamos la categoría de animales
+    - practiquemos vocabulario del cuerpo
+    - quiero la categoría de objetos
+    - vamos con la categoría colores
+    - ahora quiero colores
+    - categoría naturaleza por favor
+    - muéstrame palabras de animales
+    - estudiemos vocabulario nuevo
+    - exploremos palabras nuevas
+    - probemos con vocabulario del cuerpo
+    - quiero ver la categoría animales
+
+- intent: iniciar_cuento
+  examples: |
+    - quiero un cuento
+    - quiero escuchar una historia
+    - quiero aprender con un cuento
+    - inicia el cuento
+    - quiero explorar una historia
+    - cuéntame una historia
+    - cuentame una historia
+    - cuéntame un cuento
+    - sigamos el cuento
+    - quiero continuar la historia
+    - historia
+    - cuento
+    - empezar el cuento
+    - quiero leer la historia
+
+# ───────────────────────────────────────────────────────────────────────────
+# responder_actividad: dispara la acción de evaluación.
 #
-# Las reglas con `condition: slot_was_set: flujo_actual: ninguno`
-# solo aplican cuando NO hay un flujo pedagógico activo, evitando
-# contradicciones con las stories que manejan el mismo intent dentro
-# de un flujo.
+# CAMBIO v3 (Camino 2): se eliminaron las 105 palabras sueltas del corpus.
+# Un intent compuesto mayoritariamente por tokens aislados se vuelve un imán
+# que captura cualquier input corto. El intent ahora aprende SOLO la ESTRUCTURA
+# del acto de responder ("creo que es X", "elijo la opción Y", ...).
+#
+# El corpus léxico validado por el especialista lingüístico se conserva en la
+# lookup table `palabra_objetivo` (final del archivo) para extracción de
+# entidad. La acción de evaluación sigue leyendo tracker.latest_message['text'].
+#
+# COMPLEMENTO REQUERIDO (fuera de este archivo): durante una actividad activa,
+# mapear el slot de respuesta con `from_text` en el form, para que una respuesta
+# de UNA palabra (p. ej. "jene") no dependa de la clasificación de intent.
+# ───────────────────────────────────────────────────────────────────────────
+- intent: responder_actividad
+  examples: |
+    - sí conozco la palabra
+    - creo que es agua
+    - es el agua
+    - es jene
+    - mi respuesta es jene
+    - pienso que es pez
+    - probablemente sea casa
+    - es mano en shipibo
+    - la respuesta es jene
+    # --- v3: patrones de respuesta embebida (estructura "respuesta dentro de frase")
+    - creo que la respuesta es agua
+    - pienso que la respuesta es el sol
+    - mi respuesta sería la casa
+    - diría que es el río
+    - yo respondo perro
+    - contestaría gato
+    - elijo la opción a
+    - escojo la opción c
+    - marco la opción b
+    - voy a elegir la a
+    - selecciono la opción a
+    - mi elección es la b
+    - podría ser bari
+    - quizás sea la nube
+    - a lo mejor es el pez
+    - voy con la palabra mono
+    - digo que es el ave
+    - la palabra que elijo es casa
+    - mi opción es la c
+    - pongo la opción b
+    - respondo con árbol
+    - creo que es la luna
+    - estoy seguro de que es jene
+    - respondo que es agua
+    - para mí es el sol
+    - seguramente es la casa
+    - mi respuesta final es pez
+    - yo diría río
+    - esa palabra es niwe
+    - la respuesta correcta es jihui
 
-rules:
+- intent: pedir_traduccion
+  examples: |
+    - cómo se dice agua
+    - cómo se dice agua en shipibo
+    - traduce esta palabra
+    - qué significa esto
+    - cómo se dice en shipibo
+    - quiero traducir una palabra
+    - traduce al español
+    - cómo digo profesor
+    - quiero traducir
+    - dime cómo se dice
+    - qué significa esta palabra
+    - qué significa jene
+    - cómo se dice árbol
+    - traduce
+    - cómo se dice esto en shipibo
+    - traducción
 
-  # ─── Patrones invariantes (siempre misma respuesta) ───────
+- intent: pedir_repeticion
+  examples: |
+    - repite
+    - otra vez
+    - vuelve a decirlo
+    - no lo vi bien
+    - repite la palabra
+    - repite el ejemplo
+    - puedes repetir
+    - dime otra vez
+    - muéstralo de nuevo
+    - repite por favor
+    - de nuevo
+    - una vez más
+    - ¿Podrías repetirlo, por favor?
+    # --- v3
+    - no escuché bien
+    - repítelo
+    - puedes decirlo otra vez
+    - no entendí, repite
 
-  - rule: Responder al saludo y ofrecer opciones
-    steps:
-      - intent: saludo
-      - action: utter_saludo
-      - action: utter_ofrecer_opciones
+- intent: confirmacion
+  examples: |
+    - sí
+    - si
+    - claro
+    - correcto
+    - está bien
+    - de acuerdo
+    - ok
+    - perfecto
+    - entendido
+    - dale
+    - sip
+    - vale
+    - así es
+    # --- v3 (se quitó "vamos" por ambigüedad con saludo; "quiero continuar" -> continuar)
+    - exacto
+    - eso es
+    - claro que sí
+    - por supuesto
 
-  - rule: Despedirse del usuario
-    steps:
-      - intent: despedida
-      - action: utter_despedida
+- intent: negacion
+  examples: |
+    - no
+    - todavía no
+    - no quiero
+    - incorrecto
+    - mejor no
+    - ahora no
+    - no gracias
+    - no deseo continuar
+    - no por ahora
+    - nope
+    # --- v3 (se quitaron "no sé" y "no sé la respuesta": no son negaciones)
+    - para nada
+    - no me interesa
+    - negativo
+    - claro que no
+    - eso no
+    - no es así
+    - prefiero que no
+    - mejor en otro momento
 
-  - rule: Responder al agradecimiento
-    steps:
-      - intent: agradecer
-      - action: utter_agradecimiento
+- intent: expresar_emocion
+  examples: |
+    - estoy feliz
+    - tengo miedo
+    - estoy cansado
+    - estoy cansada
+    - me siento bien
+    - estoy aburrido
+    - estoy aburrida
+    - estoy emocionado
+    - estoy emocionada
+    - me siento triste
+    - estoy frustrado
+    # --- v3: solo estados afectivos puros (se quitaron "me cuesta mucho" y
+    #         "me siento confundido" -> pertenecen a pedir_ayuda)
+    - estoy contento
+    - estoy contenta
+    - me siento nervioso
+    - estoy alegre
+    - me da pena
+    - estoy preocupado
+    - me siento motivado
+    - estoy tranquilo
+    - me siento orgulloso
 
-  - rule: Pausar conversación
-    steps:
-      - intent: pausar
-      - action: utter_pausar
+- intent: agradecer
+  examples: |
+    - gracias
+    - muchas gracias
+    - te agradezco
+    - gracias por la ayuda
+    - mil gracias
+    - gracias bot
+    - mil gracias por enseñarme
+    - Gracias a ti.
+    - Gracias en avance.
+    - ¡Gracias nuevamente!
+    - Muchísimas gracias.
+    - Quería decir gracias.
+    # --- v3
+    - te lo agradezco
+    - gracias por todo
+    - qué amable, gracias
+    - gracias por enseñarme
 
-  # ─── Patrones condicionales (solo fuera de un flujo) ──────
+- intent: continuar
+  examples: |
+    - continúa
+    - continua
+    - siguiente
+    - avancemos
+    - otra palabra
+    - sigamos
+    - quiero seguir
+    - vamos con otra
+    - pasa al siguiente
+    - continuemos
+    - quiero avanzar
+    - sigamos adelante
+    - próxima palabra
+    - dame otra
+    # --- v3 ("quiero continuar" movido desde confirmacion)
+    - quiero continuar
+    - sigamos ya
+    - bueno sigamos
+    - listo sigamos
+    - ok sigamos
+    - vale continuemos
+    - dame más
+    - quiero más
+    - más ejercicios
+    - más actividades
+    - quiero otra actividad
+    - una actividad más
+    - pásame la siguiente
+    - vamos a la siguiente
+    - continuemos por favor
+    - adelante con la siguiente
+    - dame el siguiente
+    - sigue por favor
 
-  - rule: Redirigir mensajes fuera de tema cuando no hay flujo activo
-    condition:
-      - slot_was_set:
-          - flujo_actual: ninguno
-    steps:
-      - intent: out_of_scope
-      - action: utter_redirigir_educativo
+- intent: pausar
+  examples: |
+    - espera
+    - detente
+    - luego sigo
+    - pausa
+    - dame un momento
+    - aguarda
+    - detente un momento
+    - regreso luego
+    # --- v3
+    - un momento por favor
+    - espérame
+    - dame un segundo
+    - necesito una pausa
+    - para un poco
+    - quiero pausar
+    - ya regreso
+    - un segundo
+    - haz una pausa
+    - déjame pensar un momento
 
-  - rule: Pedir ayuda cuando no hay flujo activo
-    condition:
-      - slot_was_set:
-          - flujo_actual: ninguno
-    steps:
-      - intent: pedir_ayuda
-      - action: utter_ayuda_general
+- intent: out_of_scope
+  examples: |
+    - cuéntame un chiste
+    - qué hora es
+    - quiero jugar fútbol
+    - háblame de otra cosa
+    - quién eres
+    - abre youtube
+    - dame una receta
+    - quiero escuchar música
+    - calcula mi tarea
+    - háblame de películas
+    - cuál es la capital de Perú
+    - qué clima hace hoy
+    - resuélveme un problema de matemáticas
 
-  - rule: Pedir traducción cuando no hay flujo activo
-    condition:
-      - slot_was_set:
-          - flujo_actual: ninguno
-    steps:
-      - intent: pedir_traduccion
-      - action: action_traducir
+# ═══════════════════════════════════════════════════════════════════════════
+# LOOKUP TABLE — corpus léxico validado por especialista lingüístico
+# ═══════════════════════════════════════════════════════════════════════════
+# Estas palabras YA NO son ejemplos del intent responder_actividad (causaban
+# el efecto imán). Quedan aquí como entidad `palabra_objetivo` para que la
+# acción de evaluación las reconozca durante una actividad.
+#
+# REQUISITO DE CONFIG (config.yml): el pipeline debe incluir
+# `RegexEntityExtractor` (y `RegexFeaturizer`) para que la lookup table se use.
+#   - name: RegexEntityExtractor
+#     use_lookup_tables: true
+# Si el pipeline no lo incluye, la lookup table simplemente se ignora.
+# ═══════════════════════════════════════════════════════════════════════════
+- lookup: palabra_objetivo
+  examples: |
+    - agua
+    - sol
+    - árbol
+    - luna
+    - río
+    - viento
+    - lluvia
+    - nube
+    - fuego
+    - tierra
+    - noche
+    - pez
+    - tortuga
+    - perro
+    - mono
+    - ave
+    - serpiente
+    - jaguar
+    - caimán
+    - pato
+    - gallina
+    - mariposa
+    - venado
+    - gato
+    - mano
+    - boca
+    - ojo
+    - cabeza
+    - pie
+    - corazón
+    - cabello
+    - diente
+    - nariz
+    - oreja
+    - brazo
+    - pierna
+    - blanco
+    - negro
+    - azul
+    - rojo
+    - verde
+    - amarillo
+    - gris
+    - marrón
+    - rosado
+    - canoa
+    - casa
+    - olla
+    - tela
+    - comida
+    - ropa
+    - plato
+    - libro
+    - escuela
+    - jene
+    - bari
+    - jihui
+    - oshi
+    - hene
+    - niwe
+    - hui
+    - wischni
+    - chi
+    - mai
+    - yamé
+    - waka
+    - shahue
+    - ochiti
+    - hiso
+    - isa
+    - rono
+    - ino
+    - cape
+    - ana
+    - atapa
+    - penpen
+    - chaso
+    - misho
+    - meno
+    - kesha
+    - wero
+    - mapo
+    - tae
+    - humti
+    - boo
+    - seta
+    - singa
+    - pon
+    - witas
+    - josho
+    - wiso
+    - sankon
+    - waschi
+    - joshin
+    - panshin
+    - coro
+    - nonti
+    - shobo
+    - chomo
+    - chupa
+    - piti
+    - chaira
+    - kencha
+    - kirika
+    - kirika shobo

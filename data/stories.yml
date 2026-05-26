@@ -1,294 +1,110 @@
-version: "3.1"
-
+version: '3.1'
 stories:
-
-# ════════════════════════════════════════════════════════════
-# HISTORIA 1 — APRENDIZAJE DE VOCABULARIO
-# ════════════════════════════════════════════════════════════
-
-- story: vocab_camino_feliz_desde_saludo
-  steps:
-    - intent: saludo
-    - action: utter_saludo
-    - action: utter_ofrecer_opciones
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-    - intent: continuar
-    - action: action_siguiente_palabra
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_directo_sin_saludo
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-    - intent: continuar
-    - action: action_siguiente_palabra
-
-- story: vocab_usuario_confirma_antes_de_empezar
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: confirmacion
-    - action: action_siguiente_palabra
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_pide_ayuda_a_media_actividad
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: pedir_ayuda
-    - action: action_dar_pista_vocab
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_pide_repetir_palabra
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: pedir_repeticion
-    - action: action_repetir_ultima_palabra
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_pide_traduccion_a_media_actividad
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: pedir_traduccion
-    - action: action_traducir
-    - action: action_retomar_flujo
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_no_sabe_y_recibe_pista
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: negacion
-    - action: action_dar_pista_vocab
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_expresa_emocion
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: expresar_emocion
-    - action: utter_empatia
-    - action: action_retomar_flujo
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-- story: vocab_agradece_y_continua
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-    - intent: agradecer
-    - action: utter_agradecimiento
-    - intent: continuar
-    - action: action_siguiente_palabra
-
-- story: vocab_pausa_y_se_despide
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-    - intent: pausar
-    - action: utter_pausar
-    - intent: despedida
-    - action: utter_despedida
-
-- story: vocab_se_desvia_fuera_de_tema
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: out_of_scope
-    - action: utter_redirigir_educativo
-    - action: action_retomar_flujo
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_vocab
-
-# ════════════════════════════════════════════════════════════
-# HISTORIA 2 — CUENTO INTERACTIVO
-# ════════════════════════════════════════════════════════════
-
 - story: cuento_camino_feliz_desde_saludo
   steps:
-    - intent: saludo
-    - action: utter_saludo
-    - action: utter_ofrecer_opciones
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: continuar
-    - action: action_siguiente_fragmento
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: saludo
+  - action: utter_saludo
+  - action: utter_ofrecer_opciones
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: continuar
+  - action: action_siguiente_fragmento
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_directo_sin_saludo
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_responde_actividad_dentro
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: responder_actividad
-    - action: action_evaluar_respuesta_cuento
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: responder_actividad
+  - action: action_evaluar_respuesta_cuento
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_pide_traduccion
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: pedir_traduccion
-    - action: action_traducir
-    - action: action_retomar_flujo
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: pedir_traduccion
+  - action: action_traducir
+  - action: action_retomar_flujo
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_pide_repeticion
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: pedir_repeticion
-    - action: action_repetir_fragmento
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: pedir_repeticion
+  - action: action_repetir_fragmento
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_pide_ayuda
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: pedir_ayuda
-    - action: action_dar_ayuda_cuento
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: pedir_ayuda
+  - action: action_dar_ayuda_cuento
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_expresa_emocion
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: expresar_emocion
-    - action: utter_empatia
-    - action: action_retomar_flujo
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: expresar_emocion
+  - action: utter_empatia
+  - action: action_retomar_flujo
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: cuento_pausa_y_se_despide
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: pausar
-    - action: utter_pausar
-    - intent: despedida
-    - action: utter_despedida
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: pausar
+  - action: utter_pausar
+  - intent: despedida
+  - action: utter_despedida
 - story: cuento_se_desvia_fuera_de_tema
   steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: out_of_scope
-    - action: utter_redirigir_educativo
-    - action: action_retomar_flujo
-    - intent: continuar
-    - action: action_siguiente_fragmento
-
-# ════════════════════════════════════════════════════════════
-# CAMBIO DE FLUJO
-# ════════════════════════════════════════════════════════════
-
-- story: cambia_de_vocab_a_cuento
-  steps:
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-
-- story: cambia_de_cuento_a_vocab
-  steps:
-    - intent: iniciar_cuento
-    - action: action_iniciar_cuento
-    - slot_was_set:
-        - flujo_actual: cuento
-    - intent: aprender_vocabulario
-    - action: action_iniciar_vocabulario
-    - slot_was_set:
-        - flujo_actual: vocabulario
-
-# ════════════════════════════════════════════════════════════
-# EXPLORACIÓN INICIAL POST-SALUDO
-# ════════════════════════════════════════════════════════════
-
+  - intent: iniciar_cuento
+  - action: action_iniciar_cuento
+  - slot_was_set:
+    - flujo_actual: cuento
+  - intent: out_of_scope
+  - action: utter_redirigir_educativo
+  - action: action_retomar_flujo
+  - intent: continuar
+  - action: action_siguiente_fragmento
 - story: saludo_y_pide_ayuda
   steps:
-    - intent: saludo
-    - action: utter_saludo
-    - action: utter_ofrecer_opciones
-    - intent: pedir_ayuda
-    - action: utter_ayuda_general
-
+  - intent: saludo
+  - action: utter_saludo
+  - action: utter_ofrecer_opciones
+  - intent: pedir_ayuda
+  - action: utter_ayuda_general
 - story: saludo_y_se_despide_pronto
   steps:
-    - intent: saludo
-    - action: utter_saludo
-    - action: utter_ofrecer_opciones
-    - intent: despedida
-    - action: utter_despedida
-  
+  - intent: saludo
+  - action: utter_saludo
+  - action: utter_ofrecer_opciones
+  - intent: despedida
+  - action: utter_despedida
