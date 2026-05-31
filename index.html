@@ -130,6 +130,7 @@ body {
   padding: .85rem 1rem;
   border-top: 1px solid rgba(255,255,255,0.1);
   display: flex; align-items: center; gap: .6rem;
+  min-width: 0;
 }
 .user-initials {
   width: 36px; height: 36px; border-radius: 50%;
@@ -137,9 +138,15 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: .85rem; flex-shrink: 0;
 }
+.user-info { min-width: 0; flex: 1; }
 .user-info span { display: block; font-size: .78rem; }
 .user-info .u-name  { color: #fff; font-weight: 600; }
-.user-info .u-email { color: rgba(255,255,255,0.55); }
+.user-info .u-email {
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ── Main area ──────────────────────────────────────────────────── */
 #main {
@@ -444,17 +451,11 @@ function registrar() {
 
 function iniciarApp() {
   actualizarSidebar();
-  // Limpiar estado anterior en Rasa y luego saludar
+  // Iniciar directamente en el flujo de vocabulario (vista izquierda)
+  // sin saludo ni oferta de opciones.
   setTimeout(async () => {
-    try {
-      await fetch(RASA, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sender: senderID, message: '/restart' })
-      });
-    } catch(_) {}
-    await enviarARasa('/saludo');
     primeraVista = false;
+    await iniciarFlujo('/aprender_vocabulario');
   }, 400);
 }
 
