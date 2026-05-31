@@ -597,3 +597,18 @@ nlu:
     - kencha
     - kirika
     - kirika shobo
+- intent: ver_mi_progreso
+  examples: |
+    - ver mi progreso
+    - quiero ver mi progreso
+    - mi progreso
+    - mi aprendizaje
+    - cómo voy
+    - como voy
+    - mostrar progreso
+    - dame mi progreso
+    - cuánto he aprendido
+    - cuanto he aprendido
+    - mostrame mi avance
+    - mi avance
+    - quiero ver mi avance

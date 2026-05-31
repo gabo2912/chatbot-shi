@@ -446,7 +446,6 @@ function iniciarApp() {
   actualizarSidebar();
   // Limpiar estado anterior en Rasa y luego saludar
   setTimeout(async () => {
-    // /restart limpia el contexto de la sesión anterior sin mostrar mensaje
     try {
       await fetch(RASA, {
         method: 'POST',
@@ -454,8 +453,27 @@ function iniciarApp() {
         body: JSON.stringify({ sender: senderID, message: '/restart' })
       });
     } catch(_) {}
-    enviarARasa('hola');
+    await enviarARasa('/saludo');
+    primeraVista = false;
   }, 400);
+}
+
+/**
+ * Inicia un flujo limpio mediante payload explícito.
+ * /aprender_vocabulario o /iniciar_cuento disparan el intent
+ * directamente sin pasar por el clasificador NLU.
+ */
+async function iniciarFlujo(payload) {
+  document.getElementById('mensajes').innerHTML = '';
+  document.getElementById('quick-replies').innerHTML = '';
+  try {
+    await fetch(RASA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender: senderID, message: '/restart' })
+    });
+  } catch(_) {}
+  await enviarARasa(payload);
 }
 
 function actualizarSidebar() {
@@ -479,14 +497,14 @@ function setVista(vista) {
     panelProg.classList.remove('visible');
     titulo.textContent    = 'Aprendizaje de Vocabulario';
     subtitulo.textContent = 'Shipibo-Konibo';
-    if (!primeraVista) enviarARasa('quiero aprender vocabulario');
+    if (!primeraVista) iniciarFlujo('/aprender_vocabulario');
   } else if (vista === 'cuento') {
     document.getElementById('btn-cuento').classList.add('active');
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
     titulo.textContent    = 'Cuento Interactivo';
     subtitulo.textContent = 'El Pescador Shipibo';
-    if (!primeraVista) enviarARasa('quiero un cuento');
+    if (!primeraVista) iniciarFlujo('/iniciar_cuento');
   } else if (vista === 'progreso') {
     document.getElementById('btn-progreso').classList.add('active');
     chatView.style.display = 'none';
@@ -640,40 +658,54 @@ function registrarProgresLocal(texto) {
 }
 
 // ── Panel Mi Aprendizaje ─────────────────────────────────────────────
-function renderizarProgreso() {
+async function renderizarProgreso() {
   const cont = document.getElementById('cats-container');
-  cont.innerHTML = '';
+  cont.innerHTML = '<div style="text-align:center;padding:2rem;color:#888;">Cargando...</div>';
+  try {
+    const resp = await fetch(`/progreso/${encodeURIComponent(senderID)}`);
+    const data = await resp.json();
+    const cats    = data.categorias || [];
+    const cuentos = data.cuentos    || [];
+    cont.innerHTML = '';
+    let hayDatos = cats.some(c => c.dominadas > 0) || cuentos.length > 0;
 
-  const cats = Object.keys(TOTAL_PALABRAS);
-  let hayDatos = false;
+    cats.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'cat-card';
+      card.innerHTML = `
+        <div class="cat-header">
+          <span class="cat-name">${c.emoji} ${capitalize(c.categoria)}</span>
+          <span class="cat-pct">${c.porcentaje}%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width: ${c.porcentaje}%"></div>
+        </div>
+        <div class="cat-sub">${c.dominadas} de ${c.total} palabras dominadas</div>
+      `;
+      cont.appendChild(card);
+    });
 
-  cats.forEach(cat => {
-    const p        = progreso[cat] || { dominadas: 0, total: TOTAL_PALABRAS[cat] };
-    const pct      = Math.round(p.dominadas / p.total * 100);
-    if (p.dominadas > 0) hayDatos = true;
+    if (cuentos.length > 0) {
+      const cuentoCard = document.createElement('div');
+      cuentoCard.className = 'cat-card';
+      cuentoCard.style.marginTop = '1rem';
+      cuentoCard.innerHTML = `
+        <div class="cat-header"><span class="cat-name">📖 Cuentos</span></div>
+        ${cuentos.map(cu => `<div class="cat-sub">${cu.cuento_id}: ${cu.completados} fragmentos completados</div>`).join('')}
+      `;
+      cont.appendChild(cuentoCard);
+    }
 
-    const card = document.createElement('div');
-    card.className = 'cat-card';
-    card.innerHTML = `
-      <div class="cat-header">
-        <span class="cat-name">${EMOJI_CAT[cat]} ${capitalize(cat)}</span>
-        <span class="cat-pct">${pct}%</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" style="width: ${pct}%"></div>
-      </div>
-      <div class="cat-sub">${p.dominadas} de ${p.total} palabras dominadas</div>
-    `;
-    cont.appendChild(card);
-  });
-
-  if (!hayDatos) {
-    cont.innerHTML = `
-      <div style="text-align:center;padding:3rem 1rem;color:#888;">
-        <div style="font-size:3rem;margin-bottom:1rem;">🌱</div>
-        <p style="font-size:1rem;font-weight:600;margin-bottom:.5rem;">Sin progreso todavía</p>
-        <p style="font-size:.875rem;">Empieza practicando vocabulario o explorando el cuento.</p>
-      </div>`;
+    if (!hayDatos) {
+      cont.innerHTML = `
+        <div style="text-align:center;padding:3rem 1rem;color:#888;">
+          <div style="font-size:3rem;margin-bottom:1rem;">🌱</div>
+          <p style="font-size:1rem;font-weight:600;margin-bottom:.5rem;">Sin progreso todavía</p>
+          <p style="font-size:.875rem;">Empieza practicando vocabulario o explorando el cuento.</p>
+        </div>`;
+    }
+  } catch (err) {
+    cont.innerHTML = `<div style="text-align:center;padding:2rem;color:#c33;">⚠️ Error cargando progreso: ${err.message}</div>`;
   }
 }
 

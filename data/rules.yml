@@ -79,10 +79,22 @@ rules:
   - rule: Evaluar respuesta de vocabulario al cerrar form
     condition:
       - active_loop: actividad_form
+      - slot_was_set:
+          - flujo_actual: vocabulario
     steps:
       - action: actividad_form
       - active_loop: null
       - action: action_evaluar_respuesta_vocab
+
+  - rule: Evaluar respuesta de cuento al cerrar form
+    condition:
+      - active_loop: actividad_form
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - action: actividad_form
+      - active_loop: null
+      - action: action_evaluar_respuesta_cuento
 
   - rule: Siguiente palabra de vocabulario
     condition:
@@ -185,3 +197,15 @@ rules:
     steps:
       - intent: pausar
       - action: utter_pausar
+
+  # ─────────────────────────────────────────────
+  # Ver mi progreso (panel "Mi Aprendizaje")
+  # Se dispara con el payload /ver_mi_progreso desde el frontend
+  # o si el usuario escribe la frase y se clasifica como out_of_scope.
+  # ─────────────────────────────────────────────
+  - rule: Ver progreso del usuario
+    condition:
+      - active_loop: null
+    steps:
+      - intent: ver_mi_progreso
+      - action: action_ver_progreso

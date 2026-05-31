@@ -16,6 +16,7 @@ intents:
   - continuar
   - pausar
   - out_of_scope
+  - ver_mi_progreso
 
 entities:
   - palabra_objetivo
@@ -66,6 +67,12 @@ slots:
   intentos_palabra:
     type: float
     initial_value: 0
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  cuento_actual:
+    type: text
     influence_conversation: false
     mappings:
       - type: custom
@@ -135,6 +142,7 @@ actions:
   - action_repetir_fragmento
   - action_continuar_cuento
   - action_traducir
+  - action_ver_progreso
   - validate_actividad_form
 
 session_config:

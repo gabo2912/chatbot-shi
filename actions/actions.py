@@ -15,7 +15,7 @@ import unicodedata
 from rasa_sdk import Action, Tracker, FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
 from rasa_sdk.types import DomainDict
-from rasa_sdk.events import SlotSet, EventType, FollowupAction
+from rasa_sdk.events import SlotSet, EventType, FollowupAction, ActiveLoop
 
 # Asegurar que el directorio de actions/ esté en sys.path
 # para que corpus_loader sea importable sin importar cómo Rasa carga el paquete.
@@ -36,48 +36,36 @@ from db import (
     registrar_intento,
     registrar_fragmento_cuento,
     ultima_posicion,
+    get_resumen_categorias,
+    get_resumen_cuento,
+)
+
+from cuentos_loader import (
+    fragmento as _cuento_fragmento,
+    total_fragmentos as _cuento_total_fragmentos,
+    titulo_de as _cuento_titulo,
+    cuentos_disponibles,
+    CUENTO_PREDETERMINADO,
 )
 
 
 
-CUENTO_PESCADOR: List[Dict[str, Any]] = [
-    {
-        "texto": (
-            "Había una vez un pescador shipibo llamado Ronin. 🛶\n"
-            "Cada mañana iba al río con su canoa para pescar."
-        ),
-        "pregunta": "En este fragmento aparece el río. ¿Cómo se dice 'agua' en shipibo?",
-        "respuesta_esperada": "jene",     # nat_001 — grafía canónica validada
-        "ayuda": "El río está lleno de *agua*. En shipibo, *agua* se dice 'jene'.",
-    },
-    {
-        "texto": (
-            "Ronin pescaba muchos peces para alimentar a su familia.\n"
-            "Un día vio un pez grande y brillante."
-        ),
-        "pregunta": "¿Cómo se dice 'pez' en shipibo?",
-        "respuesta_esperada": "waka",     # ani_001 — grafía canónica validada (era 'yapa')
-        "ayuda": "Recuerda: el animal que Ronin pesca se llama 'waka' en shipibo.",
-    },
-    {
-        "texto": (
-            "El pez le habló a Ronin: 'Si me dejas vivir, te enseñaré "
-            "las palabras antiguas de la selva.'"
-        ),
-        "pregunta": "Ronin usa sus *manos* para soltar al pez. ¿Cómo se dice 'mano' en shipibo?",
-        "respuesta_esperada": "meno",     # cuer_001 — grafía canónica validada (era 'meken')
-        "ayuda": "La parte del cuerpo con la que agarramos cosas se dice 'meno'.",
-    },
-    {
-        "texto": (
-            "Ronin aceptó. Así aprendió muchas palabras antiguas y compartió "
-            "el conocimiento con su pueblo. 🌿"
-        ),
-        "pregunta": None,  # último fragmento sin pregunta
-        "respuesta_esperada": None,
-        "ayuda": None,
-    },
-]
+# El cuento se carga dinámicamente desde actions/corpus/cuentos.xlsx
+# vía cuentos_loader. Las funciones auxiliares debajo encapsulan el acceso.
+
+def _cuento_id_activo(tracker) -> str:
+    """Cuento activo actual; por defecto, el predeterminado del loader."""
+    return tracker.get_slot("cuento_actual") or CUENTO_PREDETERMINADO
+
+
+def _get_fragmento(tracker, idx: int):
+    """Devuelve el fragmento N del cuento activo, o None si no existe."""
+    return _cuento_fragmento(_cuento_id_activo(tracker), idx)
+
+
+def _get_total(tracker) -> int:
+    """Cantidad total de fragmentos del cuento activo."""
+    return _cuento_total_fragmentos(_cuento_id_activo(tracker))
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -241,17 +229,29 @@ class ValidateActividadForm(FormValidationAction):
         es_pausa = texto_norm in pausa_explicita
         es_despedida = texto_norm in despedida_explicita
 
+        # Determinar el flujo activo: vocabulario o cuento
+        flujo = tracker.get_slot("flujo_actual") or "vocabulario"
+
         # Caso ayuda/pista: dar pista real, no mensaje genérico
         if es_ayuda or (
             intent in {"pedir_ayuda", "expresar_emocion"}
             and confianza >= 0.75
             and len(tokens) > 1
         ):
+            if flujo == "cuento":
+                # Pista para el cuento
+                idx = int(tracker.get_slot("fragmento_actual") or 0)
+                frag = _get_fragmento(tracker, idx)
+                ayuda_msg = (frag or {}).get("ayuda") or "Lee el fragmento con calma."
+                preg = (frag or {}).get("pregunta") or "Escribe la palabra en shipibo."
+                dispatcher.utter_message(text=f"💡 {ayuda_msg}\n\n{preg}")
+                return {"respuesta_actividad": None}
+
+            # Pista para vocabulario
             categoria = tracker.get_slot("categoria_actual") or "naturaleza"
             palabra_es = tracker.get_slot("palabra_actual") or ""
             info = encontrar_palabra(categoria, palabra_es)
             pista = info.get("pista", "Piensa en el contexto de la palabra.")
-
             dispatcher.utter_message(
                 text=(
                     f"💡 Pista para **{palabra_es}**: {pista}\n"
@@ -534,15 +534,33 @@ class ActionIniciarCuento(Action):
         return "action_iniciar_cuento"
 
     def run(self, dispatcher, tracker, domain):
+        if not cuentos_disponibles():
+            dispatcher.utter_message(
+                text="⚠️ No hay cuentos cargados. Verifica actions/corpus/cuentos.xlsx"
+            )
+            return []
+
+        cuento_id = _cuento_id_activo(tracker)
         idx = 0
-        frag = CUENTO_PESCADOR[idx]
-        mensaje = f"📖 **El pescador shipibo** — Parte {idx + 1}\n\n{frag['texto']}"
+        frag = _cuento_fragmento(cuento_id, idx)
+        if not frag:
+            dispatcher.utter_message(text="⚠️ El cuento no tiene fragmentos.")
+            return []
+
+        titulo = _cuento_titulo(cuento_id)
+        mensaje = f"📖 **{titulo}** — Parte {idx + 1}\n\n{frag['texto']}"
         if frag.get("pregunta"):
             mensaje += f"\n\n{frag['pregunta']}"
+            botones = [
+                {"title": "Pista",   "payload": "/pedir_ayuda"},
+                {"title": "Repetir", "payload": "/pedir_repeticion"},
+            ]
         else:
             mensaje += "\n\nEscribe 'continuar' para seguir."
-        dispatcher.utter_message(text=mensaje)
-        return [
+            botones = [{"title": "Continuar", "payload": "/continuar"}]
+        dispatcher.utter_message(text=mensaje, buttons=botones)
+
+        eventos = [
             SlotSet("flujo_actual", "cuento"),
             SlotSet("fragmento_actual", float(idx)),
             SlotSet("palabra_actual", None),
@@ -551,6 +569,11 @@ class ActionIniciarCuento(Action):
             SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
+        # Si el fragmento tiene pregunta, activar el form para capturar la respuesta
+        if frag.get("pregunta"):
+            eventos.append(ActiveLoop("actividad_form"))
+            eventos.append(SlotSet("requested_slot", "respuesta_actividad"))
+        return eventos
 
 
 class ActionSiguienteFragmento(Action):
@@ -559,25 +582,39 @@ class ActionSiguienteFragmento(Action):
 
     def run(self, dispatcher, tracker, domain):
         idx = int(tracker.get_slot("fragmento_actual") or 0) + 1
-        if idx >= len(CUENTO_PESCADOR):
+        total = _get_total(tracker)
+        if idx >= total:
             mensaje = "Has terminado el cuento. 🌟 ¿Quieres practicar vocabulario ahora?"
-            dispatcher.utter_message(text=mensaje)
+            dispatcher.utter_message(text=mensaje, buttons=[
+                {"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"},
+                {"title": "Ver mi progreso",      "payload": "/ver_mi_progreso"},
+            ])
             return [
                 SlotSet("flujo_actual", "ninguno"),
                 SlotSet("fragmento_actual", 0),
                 SlotSet("ultima_respuesta_bot", mensaje),
             ]
-        frag = CUENTO_PESCADOR[idx]
+        frag = _get_fragmento(tracker, idx)
         mensaje = f"📖 Parte {idx + 1}\n\n{frag['texto']}"
         if frag.get("pregunta"):
             mensaje += f"\n\n{frag['pregunta']}"
+            botones = [
+                {"title": "Pista",   "payload": "/pedir_ayuda"},
+                {"title": "Repetir", "payload": "/pedir_repeticion"},
+            ]
         else:
             mensaje += "\n\nEscribe 'continuar' para seguir."
-        dispatcher.utter_message(text=mensaje)
-        return [
+            botones = [{"title": "Continuar", "payload": "/continuar"}]
+        dispatcher.utter_message(text=mensaje, buttons=botones)
+
+        eventos = [
             SlotSet("fragmento_actual", float(idx)),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
+        if frag.get("pregunta"):
+            eventos.append(ActiveLoop("actividad_form"))
+            eventos.append(SlotSet("requested_slot", "respuesta_actividad"))
+        return eventos
 
 
 class ActionEvaluarRespuestaCuento(Action):
@@ -585,29 +622,45 @@ class ActionEvaluarRespuestaCuento(Action):
         return "action_evaluar_respuesta_cuento"
 
     def run(self, dispatcher, tracker, domain):
-        texto = (tracker.latest_message or {}).get("text", "")
+        # El texto viene del slot respuesta_actividad (capturado por el form)
+        texto = (
+            tracker.get_slot("respuesta_actividad")
+            or (tracker.latest_message or {}).get("text", "")
+        )
+        # Limpiar centinela si vino de pausa
+        if texto == "__pausa__":
+            dispatcher.utter_message(text="Pausamos el cuento. Cuando quieras seguir, escribe **continuar**.")
+            return [SlotSet("respuesta_actividad", None)]
+
         idx = int(tracker.get_slot("fragmento_actual") or 0)
-        frag = CUENTO_PESCADOR[idx]
+        frag = _get_fragmento(tracker, idx)
+        if not frag:
+            dispatcher.utter_message(text="No encontré ese fragmento. Escribe 'continuar'.")
+            return [SlotSet("respuesta_actividad", None)]
+
         esperada = frag.get("respuesta_esperada") or ""
-
         if not esperada:
-            dispatcher.utter_message(text="Sigamos con el cuento. Escribe 'continuar'.")
-            return []
+            dispatcher.utter_message(text="Sigamos con el cuento. Escribe **continuar**.")
+            return [SlotSet("respuesta_actividad", None)]
 
+        cuento_id = _cuento_id_activo(tracker)
         resultado = evaluar_respuesta(texto, esperada)
         registrar_fragmento_cuento(
-            tracker.sender_id, "pescador_shipibo", idx, resultado == "correcto"
+            tracker.sender_id, cuento_id, idx, resultado == "correcto"
         )
         if resultado == "correcto":
-            mensaje = f"¡Muy bien! ✅ '{esperada}' es la palabra correcta. Sigamos con la historia."
+            mensaje = f"¡Muy bien! ✅ '{esperada}' es la palabra correcta."
         elif resultado == "parcial":
-            mensaje = f"Te acercaste. 🤏 La respuesta es '{esperada}'. Continuemos."
+            mensaje = f"Te acercaste. 🤏 La respuesta es '{esperada}'."
         else:
-            mensaje = f"No exactamente. La palabra que buscábamos era '{esperada}'. 🌱 Sigamos."
+            mensaje = f"No exactamente. La palabra era '{esperada}'. 🌱"
         dispatcher.utter_message(text=mensaje, buttons=[
-            {"title": "Continuar historia", "payload": "continuar"},
+            {"title": "Continuar historia", "payload": "/continuar"},
         ])
-        return [SlotSet("ultima_respuesta_bot", mensaje)]
+        return [
+            SlotSet("respuesta_actividad", None),
+            SlotSet("ultima_respuesta_bot", mensaje),
+        ]
 
 
 class ActionDarAyudaCuento(Action):
@@ -616,8 +669,10 @@ class ActionDarAyudaCuento(Action):
 
     def run(self, dispatcher, tracker, domain):
         idx = int(tracker.get_slot("fragmento_actual") or 0)
-        frag = CUENTO_PESCADOR[idx]
-        ayuda = frag.get("ayuda") or "Lee el fragmento con calma y piensa en el contexto."
+        frag = _get_fragmento(tracker, idx)
+        if not frag:
+            return []
+        ayuda = frag.get("ayuda") or "Lee el fragmento con calma."
         mensaje = f"💡 {ayuda}"
         if frag.get("pregunta"):
             mensaje += f"\n\nVuelvo a preguntarte: {frag['pregunta']}"
@@ -631,7 +686,9 @@ class ActionRepetirFragmento(Action):
 
     def run(self, dispatcher, tracker, domain):
         idx = int(tracker.get_slot("fragmento_actual") or 0)
-        frag = CUENTO_PESCADOR[idx]
+        frag = _get_fragmento(tracker, idx)
+        if not frag:
+            return []
         mensaje = f"📖 Repito la parte {idx + 1}:\n\n{frag['texto']}"
         if frag.get("pregunta"):
             mensaje += f"\n\n{frag['pregunta']}"
@@ -645,12 +702,12 @@ class ActionContinuarCuento(Action):
 
     def run(self, dispatcher, tracker, domain):
         idx = int(tracker.get_slot("fragmento_actual") or 0)
-        if idx < len(CUENTO_PESCADOR):
-            frag = CUENTO_PESCADOR[idx]
+        frag = _get_fragmento(tracker, idx)
+        if frag:
             if frag.get("pregunta"):
                 mensaje = f"Volvamos al cuento. {frag['pregunta']}"
             else:
-                mensaje = "Volvamos al cuento. Escribe 'continuar' para seguir."
+                mensaje = "Volvamos al cuento. Escribe **continuar** para seguir."
             dispatcher.utter_message(text=mensaje)
             return [SlotSet("ultima_respuesta_bot", mensaje)]
         dispatcher.utter_message(text="¿Quieres empezar otro cuento o practicar vocabulario?")
@@ -711,4 +768,54 @@ class ActionRetomarFlujo(Action):
             mensaje = "¿Continuamos con el cuento? Dime 'sí' o 'continuar'."
             dispatcher.utter_message(text=mensaje)
             return [SlotSet("ultima_respuesta_bot", mensaje)]
+        return []
+
+
+class ActionVerProgreso(Action):
+    """Reporte de progreso del usuario, leído desde la DB."""
+
+    def name(self) -> Text:
+        return "action_ver_progreso"
+
+    def run(self, dispatcher, tracker, domain):
+        sid = tracker.sender_id
+        cats = get_resumen_categorias(sid)
+        cuentos = get_resumen_cuento(sid)
+
+        tiene_datos = any(c["dominadas"] > 0 for c in cats) or len(cuentos) > 0
+        if not tiene_datos:
+            dispatcher.utter_message(
+                text="Aún no tienes progreso registrado. 🌱 ¡Empieza una actividad!",
+                buttons=[
+                    {"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"},
+                    {"title": "Explorar cuento",      "payload": "/iniciar_cuento"},
+                ]
+            )
+            return []
+
+        lineas = ["📊 **Tu progreso:**\n"]
+        for c in cats:
+            barra = "█" * (c["porcentaje"] // 10) + "░" * (10 - c["porcentaje"] // 10)
+            lineas.append(
+                f"{c['emoji']} **{c['categoria'].capitalize()}**: "
+                f"{c['dominadas']}/{c['total']} ({c['porcentaje']}%)  {barra}"
+            )
+
+        if cuentos:
+            lineas.append("\n📖 **Cuentos:**")
+            for cu in cuentos:
+                lineas.append(f"• {cu['cuento_id']}: {cu['completados']} fragmentos")
+
+        total_dom = sum(c["dominadas"] for c in cats)
+        total_pal = sum(c["total"] for c in cats)
+        pct = round(total_dom / total_pal * 100) if total_pal else 0
+        lineas.append(f"\n🏆 **Total: {total_dom}/{total_pal} ({pct}%)**")
+
+        dispatcher.utter_message(
+            text="\n".join(lineas),
+            buttons=[
+                {"title": "Seguir practicando", "payload": "/aprender_vocabulario"},
+                {"title": "Ir al cuento",        "payload": "/iniciar_cuento"},
+            ]
+        )
         return []
