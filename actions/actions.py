@@ -116,6 +116,130 @@ def evaluar_respuesta(
     return "incorrecto"
 
 
+# ════════════════════════════════════════════════════════════════════
+# MODO DE PRÁCTICA — bidireccionalidad
+# ════════════════════════════════════════════════════════════════════
+# es_a_shp: se muestra la palabra en español, el alumno produce el shipibo
+# shp_a_es: se muestra la palabra en shipibo, el alumno reconoce el español
+#
+# La elección persiste en el slot `modo_practica` y solo cambia cuando
+# el usuario lo pide explícitamente. El progreso en DB es agnóstico al
+# modo: cada palabra dominada cuenta igual en cualquier dirección.
+
+MODO_ES_A_SHP = "es_a_shp"
+MODO_SHP_A_ES = "shp_a_es"
+
+# Palabras vacías en español que se aceptan envolviendo la respuesta
+# en modo shp_a_es: "el agua", "es agua", "la mano izquierda".
+# Permiten que el alumno responda con frase corta natural sin penalizarlo.
+ARTICULOS_ES = {"el", "la", "los", "las", "un", "una", "unos", "unas",
+                "es", "son", "lo", "se", "dice", "significa"}
+
+
+def _get_modo(tracker) -> str:
+    """Devuelve el modo de práctica actual, con fallback a es_a_shp."""
+    modo = tracker.get_slot("modo_practica")
+    return modo if modo in (MODO_ES_A_SHP, MODO_SHP_A_ES) else MODO_ES_A_SHP
+
+
+def _formular_pregunta(palabra_info: Dict[str, Any], modo: str) -> str:
+    """
+    Construye el enunciado de la pregunta según el modo.
+    palabra_info debe contener al menos "es" y "shp".
+    """
+    if modo == MODO_SHP_A_ES:
+        return f"¿Qué significa **{palabra_info['shp']}** en español?"
+    return f"¿Cómo se dice **{palabra_info['es']}** en shipibo?"
+
+
+def _pista_segun_modo(palabra_info: Dict[str, Any], modo: str) -> str:
+    """
+    Devuelve la pista pedagógica adecuada al modo.
+
+    - shp_a_es: usa la pista cultural del corpus (describe el concepto
+      en español), que es exactamente lo que el alumno debe producir.
+    - es_a_shp: la pista cultural no sirve (el alumno ya tiene el español);
+      en su lugar se entrega una pista formal sobre la palabra shipibo:
+      inicial y longitud. Es modesta pero honesta y no requiere reescribir
+      el corpus de pistas.
+    """
+    if modo == MODO_SHP_A_ES:
+        return palabra_info.get(
+            "pista", "Piensa en el contexto de esta palabra."
+        )
+
+    shp = palabra_info.get("shp", "")
+    if not shp:
+        return "Piensa en cómo suena esta palabra en shipibo."
+    inicial = shp[0].lower()
+    n = len(shp.replace(" ", ""))
+    return (
+        f"La palabra en shipibo empieza con **{inicial}** "
+        f"y tiene {n} letras."
+    )
+
+
+def _esperada_y_variantes(palabra_info: Dict[str, Any], modo: str):
+    """
+    Devuelve (respuesta_esperada, lista_variantes_aceptadas) según el modo.
+
+    En shp_a_es las "variantes" del corpus son grafías shipibo: no aplican
+    para una respuesta en español. Por eso se devuelve lista vacía y el
+    matching parcial de evaluar_respuesta cubre frases como "es agua".
+    """
+    if modo == MODO_SHP_A_ES:
+        return palabra_info.get("es", ""), []
+    return palabra_info.get("shp", ""), palabra_info.get("variantes", [])
+
+
+def _normalizar_respuesta_es(texto: str) -> str:
+    """
+    Limpia respuestas en español: quita artículos y muletillas comunes.
+    "el agua" -> "agua", "es la mano" -> "mano".
+    """
+    if not texto:
+        return ""
+    tokens = [t for t in normalizar(texto).split() if t not in ARTICULOS_ES]
+    return " ".join(tokens) if tokens else normalizar(texto)
+
+
+def _botones_modo(modo_actual: str) -> List[Dict[str, str]]:
+    """Botones para elegir/cambiar de modo, marcando el actual."""
+    marca_es_shp = "✓ " if modo_actual == MODO_ES_A_SHP else ""
+    marca_shp_es = "✓ " if modo_actual == MODO_SHP_A_ES else ""
+    return [
+        {
+            "title": f"{marca_es_shp}Español → Shipibo (producir)",
+            "payload": '/seleccionar_modo{"modo":"es_a_shp"}',
+        },
+        {
+            "title": f"{marca_shp_es}Shipibo → Español (reconocer)",
+            "payload": '/seleccionar_modo{"modo":"shp_a_es"}',
+        },
+    ]
+
+
+def _extraer_modo_de_mensaje(tracker) -> str:
+    """
+    Si el último mensaje trae un payload con entidad/metadata `modo`
+    (típicamente desde botones), lo devuelve. Si no, devuelve "".
+    Rasa parsea /intent{"modo":"x"} como entidad `modo`.
+    """
+    msg = tracker.latest_message or {}
+    for ent in msg.get("entities", []):
+        if ent.get("entity") == "modo" and ent.get("value") in (
+            MODO_ES_A_SHP, MODO_SHP_A_ES
+        ):
+            return ent["value"]
+    # Fallback heurístico por texto, por si el usuario escribe la frase
+    texto = normalizar(msg.get("text", ""))
+    if "shipibo a espanol" in texto or "shp a es" in texto:
+        return MODO_SHP_A_ES
+    if "espanol a shipibo" in texto or "es a shp" in texto:
+        return MODO_ES_A_SHP
+    return ""
+
+
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -206,6 +330,12 @@ class ValidateActividadForm(FormValidationAction):
                 )
             return {"respuesta_actividad": None}
 
+        # Nota: el intent `seleccionar_modo` dentro del form lo intercepta
+        # una regla en rules.yml ("Cambiar modo durante actividad"), que
+        # desactiva el loop y delega en action_seleccionar_modo. Esa acción
+        # aplica el cambio y reactiva el form vía FollowupAction. Aquí no
+        # hace falta lógica adicional.
+
         ayuda_explicita = {
             "ayuda", "ayudame", "pista", "hint",
             "dame pista", "dame una pista",
@@ -249,17 +379,14 @@ class ValidateActividadForm(FormValidationAction):
                 dispatcher.utter_message(text=f"💡 {ayuda_msg}\n\n{preg}")
                 return {"respuesta_actividad": None}
 
-            # Pista para vocabulario
+            # Pista para vocabulario (respetando el modo de práctica)
             categoria = tracker.get_slot("categoria_actual") or "naturaleza"
             palabra_es = tracker.get_slot("palabra_actual") or ""
+            modo = _get_modo(tracker)
             info = encontrar_palabra(categoria, palabra_es)
-            pista = info.get("pista", "Piensa en el contexto de la palabra.")
-            dispatcher.utter_message(
-                text=(
-                    f"💡 Pista para **{palabra_es}**: {pista}\n"
-                    f"¿Cómo se dice **{palabra_es}** en shipibo?"
-                )
-            )
+            pista = _pista_segun_modo(info, modo)
+            pregunta = _formular_pregunta(info, modo)
+            dispatcher.utter_message(text=f"💡 Pista: {pista}\n{pregunta}")
             return {"respuesta_actividad": None}
 
         # Caso repetición clara
@@ -361,22 +488,56 @@ class ActionIniciarVocabulario(Action):
             if info_retomada:
                 palabra = info_retomada
 
+        # ── Modo de práctica ────────────────────────────────────────────
+        # Si nunca eligió modo, se muestra el selector como primer paso
+        # y no se activa el form todavía. La elección persiste y la próxima
+        # vez salta este paso. Los slots de actividad sí se preparan para
+        # que, al elegir modo, ya esté todo listo.
+        modo_actual = tracker.get_slot("modo_practica")
+        primera_vez = modo_actual not in (MODO_ES_A_SHP, MODO_SHP_A_ES)
+
+        if primera_vez:
+            dispatcher.utter_message(
+                text=(
+                    "Antes de empezar: ¿cómo prefieres practicar?\n\n"
+                    "• **Español → Shipibo**: te muestro la palabra en español "
+                    "y tú me dices cómo se dice en shipibo (producir).\n"
+                    "• **Shipibo → Español**: te muestro la palabra en shipibo "
+                    "y tú me dices qué significa (reconocer).\n\n"
+                    "Puedes cambiar de modo en cualquier momento."
+                ),
+                buttons=_botones_modo(MODO_ES_A_SHP),
+            )
+            return [
+                SlotSet("flujo_actual", "vocabulario"),
+                SlotSet("categoria_actual", categoria),
+                SlotSet("palabra_actual", palabra["es"]),
+                SlotSet("fragmento_actual", 0),
+                SlotSet("intentos_palabra", 0),
+                SlotSet("respuesta_actividad", None),
+                # No fijamos ultima_respuesta_bot aquí porque no es una
+                # pregunta que se pueda "repetir": es el selector inicial.
+            ]
+
+        # Camino normal: el usuario ya tiene un modo elegido
+        pregunta = _formular_pregunta(palabra, modo_actual)
+
         if palabra_retomada and palabra["es"] == palabra_retomada:
             mensaje = (
                 f"Retomemos tu avance. 🌿\n"
                 f"Categoría: *{categoria}*\n\n"
-                f"Te quedaste en **{palabra['es']}**.\n"
-                f"¿Cómo se dice **{palabra['es']}** en shipibo?"
+                f"Te quedaste en esta palabra.\n{pregunta}"
             )
         else:
             mensaje = (
                 f"¡Vamos a practicar vocabulario! 🌿\n"
                 f"Categoría: *{categoria}*\n\n"
-                f"¿Cómo se dice **{palabra['es']}** en shipibo?"
+                f"{pregunta}"
             )
         dispatcher.utter_message(text=mensaje, buttons=[
             {"title": "Dame una pista", "payload": "dame una pista"},
             {"title": "Saltar palabra",  "payload": "continuar"},
+            {"title": "Cambiar modo", "payload": "/seleccionar_modo"},
         ])
         return [
             SlotSet("flujo_actual", "vocabulario"),
@@ -400,7 +561,9 @@ class ActionSiguientePalabra(Action):
         if not nueva:
             dispatcher.utter_message(text="No tengo más palabras en esta categoría por ahora.")
             return []
-        mensaje = f"Siguiente palabra:\n\n¿Cómo se dice **{nueva['es']}** en shipibo?"
+        modo = _get_modo(tracker)
+        pregunta = _formular_pregunta(nueva, modo)
+        mensaje = f"Siguiente palabra:\n\n{pregunta}"
         dispatcher.utter_message(text=mensaje)
         return [
             SlotSet("palabra_actual", nueva["es"]),
@@ -441,34 +604,49 @@ class ActionEvaluarRespuestaVocab(Action):
         categoria = tracker.get_slot("categoria_actual") or "naturaleza"
         palabra_es = tracker.get_slot("palabra_actual") or ""
         intentos = int(tracker.get_slot("intentos_palabra") or 0)
+        modo = _get_modo(tracker)
 
         info = encontrar_palabra(categoria, palabra_es)
-        esperada_shp = info.get("shp", "")
-        variantes    = info.get("variantes", [])
-        resultado = evaluar_respuesta(texto, esperada_shp, variantes)
+        esperada, variantes = _esperada_y_variantes(info, modo)
+
+        # En modo shp_a_es aceptamos frases naturales: "el agua", "es agua".
+        texto_eval = _normalizar_respuesta_es(texto) if modo == MODO_SHP_A_ES else texto
+        resultado = evaluar_respuesta(texto_eval, esperada, variantes)
+
+        # Para los mensajes de feedback necesitamos las dos formas, sin
+        # importar el modo: se muestra el par completo es↔shp.
+        forma_es = info.get("es", "")
+        forma_shp = info.get("shp", "")
+
+        # En la DB siempre guardamos el par canónico es/shp. El campo
+        # `resultado` ya captura correcto/parcial/incorrecto; el modo
+        # no se almacena (decisión: el dominio cuenta igual en ambas
+        # direcciones; agregar columna `modo` queda como deuda v2 si
+        # se quiere análisis por dirección).
 
         eventos_base = [SlotSet("respuesta_actividad", None)]
 
         if resultado == "correcto":
             registrar_intento(
-                tracker.sender_id, categoria, palabra_es, esperada_shp, "correcto", intentos + 1
+                tracker.sender_id, categoria, palabra_es, forma_shp, "correcto", intentos + 1
             )
             mensaje = (
-                f"¡Excelente! ✅ '**{palabra_es}**' en shipibo es '**{esperada_shp}**'.\n"
+                f"¡Excelente! ✅ '**{forma_es}**' en shipibo es '**{forma_shp}**'.\n"
                 f"¿Seguimos?"
             )
             dispatcher.utter_message(text=mensaje, buttons=[
                 {"title": "Siguiente palabra", "payload": "continuar"},
+                {"title": "Cambiar modo", "payload": "/seleccionar_modo"},
                 {"title": "Pausar", "payload": "pausa"},
             ])
             return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
 
         if resultado == "parcial":
             registrar_intento(
-                tracker.sender_id, categoria, palabra_es, esperada_shp, "parcial", intentos + 1
+                tracker.sender_id, categoria, palabra_es, forma_shp, "parcial", intentos + 1
             )
             mensaje = (
-                f"Casi. 🤏 Te acercaste, pero la respuesta exacta es '**{esperada_shp}**'.\n"
+                f"Casi. 🤏 Te acercaste, pero la respuesta exacta es '**{esperada}**'.\n"
                 f"¿Seguimos?"
             )
             dispatcher.utter_message(text=mensaje, buttons=[
@@ -481,10 +659,9 @@ class ActionEvaluarRespuestaVocab(Action):
         # se revela la respuesta y se espera confirmación/continuar.
         intentos += 1
         if intentos < 2:
-            mensaje = (
-                f"No es esa. 💡 Pista: {info.get('pista', 'piensa en su uso cotidiano.')}\n"
-                f"¿Cómo se dice **{palabra_es}** en shipibo?"
-            )
+            pista = _pista_segun_modo(info, modo)
+            pregunta = _formular_pregunta(info, modo)
+            mensaje = f"No es esa. 💡 Pista: {pista}\n{pregunta}"
             dispatcher.utter_message(text=mensaje)
             return eventos_base + [
                 SlotSet("intentos_palabra", intentos),
@@ -493,10 +670,11 @@ class ActionEvaluarRespuestaVocab(Action):
             ]
 
         registrar_intento(
-            tracker.sender_id, categoria, palabra_es, esperada_shp, "incorrecto", intentos + 1
+            tracker.sender_id, categoria, palabra_es, forma_shp, "incorrecto", intentos + 1
         )
         mensaje = (
-            f"No te preocupes. La respuesta correcta es '**{esperada_shp}**'. 🌱\n"
+            f"No te preocupes. La respuesta correcta es '**{esperada}**'. 🌱\n"
+            f"({forma_es} ↔ {forma_shp})\n"
             f"¿Pasamos a otra palabra?"
         )
         dispatcher.utter_message(text=mensaje, buttons=[
@@ -514,12 +692,11 @@ class ActionDarPistaVocab(Action):
     def run(self, dispatcher, tracker, domain):
         categoria = tracker.get_slot("categoria_actual") or "naturaleza"
         palabra_es = tracker.get_slot("palabra_actual") or ""
+        modo = _get_modo(tracker)
         info = encontrar_palabra(categoria, palabra_es)
-        pista = info.get("pista", "Piensa en su uso cotidiano.")
-        mensaje = (
-            f"💡 Pista para **{palabra_es}**: {pista}\n"
-            f"¿Cómo se dice **{palabra_es}** en shipibo?"
-        )
+        pista = _pista_segun_modo(info, modo)
+        pregunta = _formular_pregunta(info, modo)
+        mensaje = f"💡 Pista: {pista}\n{pregunta}"
         dispatcher.utter_message(text=mensaje)
         return [SlotSet("ultima_respuesta_bot", mensaje)]
 
@@ -542,11 +719,16 @@ class ActionContinuarVocabulario(Action):
         return "action_continuar_vocabulario"
 
     def run(self, dispatcher, tracker, domain):
-        palabra = tracker.get_slot("palabra_actual")
-        if palabra:
-            mensaje = f"Volvamos a lo nuestro. ¿Cómo se dice **{palabra}** en shipibo?"
-            dispatcher.utter_message(text=mensaje)
-            return [SlotSet("ultima_respuesta_bot", mensaje)]
+        palabra_es = tracker.get_slot("palabra_actual")
+        categoria = tracker.get_slot("categoria_actual")
+        if palabra_es and categoria:
+            modo = _get_modo(tracker)
+            info = encontrar_palabra(categoria, palabra_es)
+            if info:
+                pregunta = _formular_pregunta(info, modo)
+                mensaje = f"Volvamos a lo nuestro. {pregunta}"
+                dispatcher.utter_message(text=mensaje)
+                return [SlotSet("ultima_respuesta_bot", mensaje)]
         dispatcher.utter_message(text="Escribe **aprender vocabulario** para iniciar una práctica.")
         return []
 
@@ -810,6 +992,77 @@ class ActionRetomarFlujo(Action):
             mensaje = "¿Continuamos con el cuento? Dime 'sí' o 'continuar'."
             dispatcher.utter_message(text=mensaje)
             return [SlotSet("ultima_respuesta_bot", mensaje)]
+        return []
+
+
+class ActionSeleccionarModo(Action):
+    """
+    Cambia el modo de práctica (es_a_shp / shp_a_es) y vuelve a formular
+    la palabra actual en el nuevo modo.
+
+    Se dispara por:
+    - Intent `seleccionar_modo` (con o sin entidad `modo` en payload).
+    - Botón "Cambiar modo" desde feedback de respuesta o desde la pregunta.
+
+    Si la entidad `modo` viene en el payload (típico de un botón), aplica
+    ese modo directamente. Si viene "vacío" (el usuario escribió "cambiar modo"
+    sin elegir dirección), muestra el selector con ambas opciones.
+    """
+
+    def name(self) -> Text:
+        return "action_seleccionar_modo"
+
+    def run(self, dispatcher, tracker, domain):
+        modo_pedido = _extraer_modo_de_mensaje(tracker)
+        modo_actual = _get_modo(tracker)
+
+        # Caso 1: el usuario ya eligió una dirección concreta (vino por botón
+        # o por una frase explícita). Aplicar y reformular la pregunta.
+        if modo_pedido in (MODO_ES_A_SHP, MODO_SHP_A_ES):
+            etiqueta = (
+                "Español → Shipibo (producir)"
+                if modo_pedido == MODO_ES_A_SHP
+                else "Shipibo → Español (reconocer)"
+            )
+            confirmacion = f"Listo, modo activo: **{etiqueta}**."
+
+            categoria = tracker.get_slot("categoria_actual")
+            palabra_es = tracker.get_slot("palabra_actual")
+            flujo = tracker.get_slot("flujo_actual")
+
+            eventos: List[EventType] = [SlotSet("modo_practica", modo_pedido)]
+
+            # Si ya hay una palabra en curso, reformularla en el nuevo modo
+            # y reactivar el form para que el alumno responda enseguida.
+            if categoria and palabra_es and flujo == "vocabulario":
+                info = encontrar_palabra(categoria, palabra_es)
+                if info:
+                    pregunta = _formular_pregunta(info, modo_pedido)
+                    mensaje = f"{confirmacion}\n\n{pregunta}"
+                    dispatcher.utter_message(text=mensaje)
+                    eventos += [
+                        SlotSet("intentos_palabra", 0),
+                        SlotSet("respuesta_actividad", None),
+                        SlotSet("ultima_respuesta_bot", mensaje),
+                        FollowupAction("actividad_form"),
+                    ]
+                    return eventos
+
+            # Si no hay actividad activa, solo confirmar y sugerir empezar.
+            mensaje = (
+                f"{confirmacion}\n\n"
+                "Escribe **aprender vocabulario** cuando quieras practicar."
+            )
+            dispatcher.utter_message(text=mensaje)
+            eventos.append(SlotSet("ultima_respuesta_bot", mensaje))
+            return eventos
+
+        # Caso 2: el usuario pidió "cambiar modo" sin especificar dirección.
+        # Mostrar el selector con el modo actual marcado.
+        dispatcher.utter_message(
+            text="¿Qué modo prefieres? (el actual está marcado con ✓)",
+            buttons=_botones_modo(modo_actual),
+        )
         return []
 
 

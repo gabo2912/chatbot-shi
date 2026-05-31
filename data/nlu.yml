@@ -612,3 +612,30 @@ nlu:
     - mostrame mi avance
     - mi avance
     - quiero ver mi avance
+
+- intent: seleccionar_modo
+  examples: |
+    - cambiar modo
+    - cambiar de modo
+    - quiero cambiar el modo
+    - modo de práctica
+    - modo de practica
+    - cambia el modo
+    - quiero practicar de otra manera
+    - quiero cambiar la dirección
+    - practicar al revés
+    - practicar al reves
+    - español a shipibo
+    - espanol a shipibo
+    - shipibo a español
+    - shipibo a espanol
+    - modo español
+    - modo espanol
+    - modo shipibo
+    - cambiar dirección
+    - cambiar direccion
+    - practicar en otra dirección
+    - quiero el otro modo
+    - cambiar la forma de practicar
+    - otra dirección de práctica
+    - prefiero el otro modo

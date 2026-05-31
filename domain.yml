@@ -17,9 +17,11 @@ intents:
   - pausar
   - out_of_scope
   - ver_mi_progreso
+  - seleccionar_modo
 
 entities:
   - palabra_objetivo
+  - modo
 
 slots:
   flujo_actual:
@@ -77,6 +79,20 @@ slots:
     mappings:
       - type: custom
 
+  # Dirección de la práctica de vocabulario:
+  #   es_a_shp -> se muestra la palabra en español, el alumno responde en shipibo (producción)
+  #   shp_a_es -> se muestra la palabra en shipibo, el alumno responde en español (reconocimiento)
+  # Persiste entre actividades hasta que el usuario elija cambiarlo.
+  modo_practica:
+    type: categorical
+    values:
+      - es_a_shp
+      - shp_a_es
+    initial_value: es_a_shp
+    influence_conversation: false
+    mappings:
+      - type: custom
+
   respuesta_actividad:
     type: text
     influence_conversation: false
@@ -123,7 +139,10 @@ responses:
     - text: "Disculpa, no entendí del todo. Puedes escribir **aprender vocabulario** o **quiero un cuento**."
 
   utter_ask_respuesta_actividad:
-    - text: "Escribe solo la palabra en shipibo."
+    - text: "Escribe tu respuesta."
+
+  utter_ofrecer_modo_practica:
+    - text: "¿Cómo prefieres practicar? Puedes cambiar de modo cuando quieras."
 
   utter_ayuda_en_actividad:
     - text: "Te doy una pista y seguimos con la misma palabra."
@@ -143,6 +162,7 @@ actions:
   - action_continuar_cuento
   - action_traducir
   - action_ver_progreso
+  - action_seleccionar_modo
   - validate_actividad_form
 
 session_config:

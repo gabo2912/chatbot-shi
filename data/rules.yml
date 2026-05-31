@@ -209,3 +209,28 @@ rules:
     steps:
       - intent: ver_mi_progreso
       - action: action_ver_progreso
+
+  # ─────────────────────────────────────────────
+  # Cambio de modo de práctica (ES->SHP / SHP->ES)
+  # Solo se aplica fuera de form. Dentro del form, la captura del
+  # intent la hace ValidateActividadForm, que muestra el selector
+  # sin cerrar la actividad.
+  # ─────────────────────────────────────────────
+  # Cambio de modo durante una actividad: cerrar el form,
+  # delegar a action_seleccionar_modo (que aplica el modo y reactiva
+  # el form vía FollowupAction).
+  - rule: Cambiar modo durante actividad
+    condition:
+      - active_loop: actividad_form
+    steps:
+      - intent: seleccionar_modo
+      - action: action_deactivate_loop
+      - active_loop: null
+      - action: action_seleccionar_modo
+
+  - rule: Seleccionar modo de práctica fuera de actividad
+    condition:
+      - active_loop: null
+    steps:
+      - intent: seleccionar_modo
+      - action: action_seleccionar_modo
