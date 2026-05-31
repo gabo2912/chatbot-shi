@@ -36,6 +36,7 @@ from db import (
     registrar_intento,
     registrar_fragmento_cuento,
     ultima_posicion,
+    ultima_posicion_cuento,
     get_resumen_categorias,
     get_resumen_cuento,
 )
@@ -44,6 +45,7 @@ from cuentos_loader import (
     fragmento as _cuento_fragmento,
     total_fragmentos as _cuento_total_fragmentos,
     titulo_de as _cuento_titulo,
+    cuento_por_id,
     cuentos_disponibles,
     CUENTO_PREDETERMINADO,
 )
@@ -310,7 +312,7 @@ class ActionIniciarVocabulario(Action):
             return []
 
         # Determinar categoría: la que el usuario mencionó, la siguiente,
-        # o la primera disponible como fallback.
+        # la ultima usada por el usuario, o la primera disponible como fallback.
         texto = (tracker.latest_message or {}).get("text", "").lower()
         CATEGORIAS_VALIDAS = [c for c in VOCABULARIO.keys() if VOCABULARIO.get(c)]
 
@@ -330,7 +332,19 @@ class ActionIniciarVocabulario(Action):
             else:
                 categoria = CATEGORIAS_VALIDAS[0]
 
-        # 3) Fallback: primera categoría disponible
+        # 3) Ultima posicion registrada en DB para el usuario
+        palabra_retomada = None
+        categoria_retomada = None
+        if categoria is None:
+            ultima = ultima_posicion(tracker.sender_id)
+            if ultima:
+                categoria_db, palabra_db = ultima
+                if categoria_db in CATEGORIAS_VALIDAS and encontrar_palabra(categoria_db, palabra_db):
+                    categoria = categoria_db
+                    categoria_retomada = categoria_db
+                    palabra_retomada = palabra_db
+
+        # 4) Fallback: primera categoría disponible
         if categoria is None:
             categoria = CATEGORIAS_VALIDAS[0]
 
@@ -342,12 +356,24 @@ class ActionIniciarVocabulario(Action):
             return []
 
         palabra = palabras[0]
+        if palabra_retomada and categoria == categoria_retomada:
+            info_retomada = encontrar_palabra(categoria, palabra_retomada)
+            if info_retomada:
+                palabra = info_retomada
 
-        mensaje = (
-            f"¡Vamos a practicar vocabulario! 🌿\n"
-            f"Categoría: *{categoria}*\n\n"
-            f"¿Cómo se dice **{palabra['es']}** en shipibo?"
-        )
+        if palabra_retomada and palabra["es"] == palabra_retomada:
+            mensaje = (
+                f"Retomemos tu avance. 🌿\n"
+                f"Categoría: *{categoria}*\n\n"
+                f"Te quedaste en **{palabra['es']}**.\n"
+                f"¿Cómo se dice **{palabra['es']}** en shipibo?"
+            )
+        else:
+            mensaje = (
+                f"¡Vamos a practicar vocabulario! 🌿\n"
+                f"Categoría: *{categoria}*\n\n"
+                f"¿Cómo se dice **{palabra['es']}** en shipibo?"
+            )
         dispatcher.utter_message(text=mensaje, buttons=[
             {"title": "Dame una pista", "payload": "dame una pista"},
             {"title": "Saltar palabra",  "payload": "continuar"},
@@ -542,13 +568,29 @@ class ActionIniciarCuento(Action):
 
         cuento_id = _cuento_id_activo(tracker)
         idx = 0
+
+        # Intentar retomar el ultimo avance del usuario en cuento.
+        ultima_cuento = ultima_posicion_cuento(tracker.sender_id)
+        if ultima_cuento:
+            cuento_db, fragmento_db = ultima_cuento
+            if cuento_por_id(cuento_db):
+                cuento_id = cuento_db
+                idx = max(0, int(fragmento_db))
+
+        total = _cuento_total_fragmentos(cuento_id)
+        if total and idx >= total:
+            idx = 0
+
         frag = _cuento_fragmento(cuento_id, idx)
         if not frag:
             dispatcher.utter_message(text="⚠️ El cuento no tiene fragmentos.")
             return []
 
         titulo = _cuento_titulo(cuento_id)
-        mensaje = f"📖 **{titulo}** — Parte {idx + 1}\n\n{frag['texto']}"
+        if ultima_cuento and cuento_id == ultima_cuento[0]:
+            mensaje = f"📖 Retomemos tu cuento: **{titulo}** — Parte {idx + 1}\n\n{frag['texto']}"
+        else:
+            mensaje = f"📖 **{titulo}** — Parte {idx + 1}\n\n{frag['texto']}"
         if frag.get("pregunta"):
             mensaje += f"\n\n{frag['pregunta']}"
             botones = [

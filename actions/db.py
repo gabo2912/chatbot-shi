@@ -138,6 +138,29 @@ def ultima_posicion(sender_id: str) -> Optional[Tuple[str, str]]:
         return None
 
 
+def ultima_posicion_cuento(sender_id: str) -> Optional[Tuple[str, int]]:
+    """
+    Devuelve (cuento_id, fragmento) del ultimo registro del usuario en cuento,
+    o None si no tiene historial.
+    """
+    try:
+        with _conn() as db:
+            row = db.execute(
+                """
+                SELECT cuento_id, fragmento
+                FROM progreso_cuento
+                WHERE sender_id = ?
+                ORDER BY fecha DESC, id DESC
+                LIMIT 1
+                """,
+                (sender_id,),
+            ).fetchone()
+        return (row["cuento_id"], int(row["fragmento"])) if row else None
+    except Exception as e:
+        logger.error("ultima_posicion_cuento: %s", e)
+        return None
+
+
 def palabras_dominadas(sender_id: str, categoria: str) -> int:
     """Cuenta palabras con al menos un intento 'correcto' en la categoría."""
     try:
