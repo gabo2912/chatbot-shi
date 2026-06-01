@@ -5,6 +5,7 @@ Endpoints:
   GET  /                          → sirve index.html
   GET  /status                    → estado de Rasa
   GET  /progreso/<sender_id>      → progreso del usuario desde la DB (JSON)
+  GET  /cuentos/<sender_id>       → catálogo de cuentos + progreso (JSON)
   POST /webhooks/rest/webhook     → proxy a Rasa
 
 Uso:
@@ -30,6 +31,33 @@ DB_CANDIDATES = [
     HERE / "progress.db",
     HERE.parent / "actions" / "progress.db",
 ]
+
+CUENTOS_XLSX_CANDIDATES = [
+    HERE / "actions" / "corpus" / "cuentos.xlsx",
+    HERE / "corpus" / "cuentos.xlsx",
+    HERE.parent / "actions" / "corpus" / "cuentos.xlsx",
+]
+
+# Metadatos visuales por cuento (emoji + descripción corta).
+# Si en el futuro se agregan más cuentos, el frontend usa 📖 por defecto.
+CUENTO_META = {
+    "pescador_shipibo": {
+        "emoji": "🛶",
+        "descripcion": "Ronin aprende palabras antiguas de un pez sabio.",
+    },
+    "motelo_tigre": {
+        "emoji": "🐢",
+        "descripcion": "Una fábula sobre cómo el ingenio vence a la fuerza.",
+    },
+    "paujil_fiesta": {
+        "emoji": "🦃",
+        "descripcion": "El paujil descubre por qué tiene plumas blancas en la cola.",
+    },
+    "matrimonio_shipibo": {
+        "emoji": "🏡",
+        "descripcion": "Las dos pruebas que el yerno debía superar antes de casarse.",
+    },
+}
 
 TOTAL_PALABRAS = {
     "naturaleza": 11, "animales": 13, "cuerpo": 12, "colores": 9, "objetos": 9
@@ -92,6 +120,85 @@ def _leer_progreso(sender_id: str):
         conn.close()
 
 
+def _cuentos_xlsx_path():
+    for c in CUENTOS_XLSX_CANDIDATES:
+        if c.exists():
+            return c
+    return None
+
+
+def _leer_cuentos(sender_id: str):
+    """
+    Lee cuentos.xlsx + progreso del usuario en la DB y devuelve metadatos
+    enriquecidos para la biblioteca de cuentos.
+    """
+    xlsx = _cuentos_xlsx_path()
+    if not xlsx:
+        return {"error": "cuentos.xlsx no encontrado", "cuentos": []}
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return {"error": "openpyxl no instalado", "cuentos": []}
+
+    wb = load_workbook(str(xlsx), read_only=True, data_only=True)
+    ws = wb["cuentos"] if "cuentos" in wb.sheetnames else wb.active
+
+    # Agrupar fragmentos por cuento_id
+    cuentos_raw = {}
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row or not row[0]:
+            continue
+        cuento_id     = str(row[0]).strip()
+        cuento_titulo = str(row[1]).strip() if row[1] else cuento_id
+        respuesta_esp = str(row[5]).strip() if len(row) > 5 and row[5] else ""
+
+        if cuento_id not in cuentos_raw:
+            cuentos_raw[cuento_id] = {
+                "id":      cuento_id,
+                "titulo":  cuento_titulo,
+                "total":   0,
+                "palabras": [],
+            }
+        cuentos_raw[cuento_id]["total"] += 1
+        if respuesta_esp and respuesta_esp not in cuentos_raw[cuento_id]["palabras"]:
+            cuentos_raw[cuento_id]["palabras"].append(respuesta_esp)
+    wb.close()
+
+    # Leer progreso por cuento desde la DB
+    progreso = {}
+    db = _db_path()
+    if db:
+        conn = sqlite3.connect(str(db))
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute("""
+                SELECT cuento_id, COUNT(DISTINCT fragmento) AS completados
+                FROM progreso_cuento WHERE sender_id = ? GROUP BY cuento_id
+            """, (sender_id,)).fetchall()
+            progreso = {r["cuento_id"]: r["completados"] for r in rows}
+        finally:
+            conn.close()
+
+    # Combinar metadatos
+    resultado = []
+    for cid, info in cuentos_raw.items():
+        meta = CUENTO_META.get(cid, {"emoji": "📖", "descripcion": ""})
+        completados = progreso.get(cid, 0)
+        total = info["total"]
+        resultado.append({
+            "id":           cid,
+            "titulo":       info["titulo"],
+            "emoji":        meta["emoji"],
+            "descripcion":  meta["descripcion"],
+            "palabras":     info["palabras"],
+            "total":        total,
+            "completados":  min(completados, total),
+            "porcentaje":   round(min(completados, total) / total * 100) if total else 0,
+        })
+    return {"cuentos": resultado}
+
+
 class PishicoProxy(BaseHTTPRequestHandler):
 
     def do_GET(self):
@@ -118,6 +225,14 @@ class PishicoProxy(BaseHTTPRequestHandler):
                 self._json(400, {"error": "Falta sender_id"})
                 return
             data = _leer_progreso(sid)
+            self._json(200, data)
+
+        elif self.path.startswith("/cuentos/"):
+            sid = self.path.split("/cuentos/", 1)[1]
+            if not sid:
+                self._json(400, {"error": "Falta sender_id"})
+                return
+            data = _leer_cuentos(sid)
             self._json(200, data)
 
         else:

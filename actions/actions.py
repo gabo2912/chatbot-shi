@@ -60,6 +60,15 @@ def _cuento_id_activo(tracker) -> str:
     return tracker.get_slot("cuento_actual") or CUENTO_PREDETERMINADO
 
 
+def _cuento_id_desde_entidades(tracker) -> str:
+    """Intenta obtener el cuento elegido desde entidades del último mensaje."""
+    entities = tracker.latest_message.get("entities", []) or []
+    for ent in entities:
+        if ent.get("entity") == "cuento_actual" and ent.get("value"):
+            return str(ent.get("value")).strip()
+    return ""
+
+
 def _get_fragmento(tracker, idx: int):
     """Devuelve el fragmento N del cuento activo, o None si no existe."""
     return _cuento_fragmento(_cuento_id_activo(tracker), idx)
@@ -748,16 +757,28 @@ class ActionIniciarCuento(Action):
             )
             return []
 
-        cuento_id = _cuento_id_activo(tracker)
+        # El frontend puede enviar el cuento elegido en el slot `cuento_actual`
+        # (vía payload /iniciar_cuento{"cuento_actual":"motelo_tigre"}).
+        # Si el usuario eligió un cuento explícitamente, se respeta esa elección
+        # y solo se retoma desde la última posición si el cuento coincide.
+        cuento_elegido = tracker.get_slot("cuento_actual") or _cuento_id_desde_entidades(tracker)
+        cuento_id = cuento_elegido or CUENTO_PREDETERMINADO
+        if not cuento_por_id(cuento_id):
+            cuento_id = CUENTO_PREDETERMINADO
         idx = 0
 
-        # Intentar retomar el ultimo avance del usuario en cuento.
         ultima_cuento = ultima_posicion_cuento(tracker.sender_id)
         if ultima_cuento:
             cuento_db, fragmento_db = ultima_cuento
-            if cuento_por_id(cuento_db):
-                cuento_id = cuento_db
-                idx = max(0, int(fragmento_db))
+            if cuento_elegido:
+                # Elección explícita: retomar solo si es el mismo cuento.
+                if cuento_db == cuento_elegido and cuento_por_id(cuento_db):
+                    idx = max(0, int(fragmento_db))
+            else:
+                # Sin elección explícita: retomar el último cuento abierto.
+                if cuento_por_id(cuento_db):
+                    cuento_id = cuento_db
+                    idx = max(0, int(fragmento_db))
 
         total = _cuento_total_fragmentos(cuento_id)
         if total and idx >= total:
@@ -786,6 +807,7 @@ class ActionIniciarCuento(Action):
 
         eventos = [
             SlotSet("flujo_actual", "cuento"),
+            SlotSet("cuento_actual", cuento_id),
             SlotSet("fragmento_actual", float(idx)),
             SlotSet("palabra_actual", None),
             SlotSet("categoria_actual", None),
@@ -805,12 +827,25 @@ class ActionSiguienteFragmento(Action):
         return "action_siguiente_fragmento"
 
     def run(self, dispatcher, tracker, domain):
-        idx = int(tracker.get_slot("fragmento_actual") or 0) + 1
+        idx_actual = int(tracker.get_slot("fragmento_actual") or 0)
+        frag_actual = _get_fragmento(tracker, idx_actual)
+        cuento_id = _cuento_id_activo(tracker)
+
+        # Marcar como completado el fragmento actual cuando no tiene pregunta.
+        # En fragmentos con pregunta, el registro ocurre en ActionEvaluarRespuestaCuento.
+        if frag_actual and not frag_actual.get("pregunta"):
+            registrar_fragmento_cuento(
+                tracker.sender_id, cuento_id, idx_actual, False
+            )
+
+        idx = idx_actual + 1
         total = _get_total(tracker)
         if idx >= total:
-            mensaje = "Has terminado el cuento. 🌟 ¿Quieres practicar vocabulario ahora?"
+            mensaje = (
+                "Has terminado el cuento. 🌟 "
+                "Si quieres aprender vocabulario, selecciónalo en la barra lateral."
+            )
             dispatcher.utter_message(text=mensaje, buttons=[
-                {"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"},
                 {"title": "Ver mi progreso",      "payload": "/ver_mi_progreso"},
             ])
             return [

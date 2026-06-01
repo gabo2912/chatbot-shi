@@ -286,6 +286,115 @@ body {
   margin-bottom: .75rem;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+
+/* ── Biblioteca de cuentos ─────────────────────────────────────────── */
+.cuentos-biblioteca {
+  padding: 1.5rem 1rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.cuentos-biblioteca h2 {
+  color: #3b4a24;
+  font-size: 1.3rem;
+  margin: 0 0 .35rem 0;
+}
+.cuentos-biblioteca .subtitle {
+  color: #6b6b5e;
+  font-size: .9rem;
+  margin-bottom: 1.5rem;
+}
+.cuento-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  border: 2px solid transparent;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.cuento-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  border-color: #3b4a24;
+}
+.cuento-card.completado {
+  background: #f6f8ee;
+}
+.cuento-head {
+  display: flex;
+  align-items: flex-start;
+  gap: .85rem;
+  margin-bottom: .65rem;
+}
+.cuento-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.cuento-titulo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2d3a1c;
+  margin: 0 0 .15rem 0;
+}
+.cuento-desc {
+  font-size: .9rem;
+  color: #555;
+  line-height: 1.35;
+}
+.cuento-palabras {
+  font-size: .8rem;
+  color: #6b6b5e;
+  margin: .6rem 0 .8rem 0;
+}
+.cuento-palabras strong { color: #3b4a24; }
+.cuento-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: .35rem;
+}
+.cuento-progreso {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: .8rem;
+  color: #6b6b5e;
+}
+.cuento-progreso .track {
+  flex: 1;
+  height: 6px;
+  background: #e6e3d4;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cuento-progreso .fill {
+  height: 100%;
+  background: #3b4a24;
+  transition: width .3s ease;
+}
+.cuento-progreso .nuevo {
+  font-size: .75rem;
+  color: #888;
+  font-style: italic;
+}
+.cuento-card button {
+  background: #3b4a24;
+  color: #f0dea0;
+  border: none;
+  border-radius: 8px;
+  padding: .55rem 1.2rem;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease;
+  flex-shrink: 0;
+}
+.cuento-card button:hover { background: #2d3a1c; }
+.cuento-card button.continuar { background: #5a6f3a; }
+.cuento-card button.continuar:hover { background: #4a5d30; }
 .cat-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: .5rem;
@@ -459,6 +568,14 @@ function iniciarApp() {
   }, 400);
 }
 
+function setInputHabilitado(habilitado, placeholder = 'Pregunta lo que desees') {
+  const input = document.getElementById('input-msg');
+  const btn = document.getElementById('btn-send');
+  input.disabled = !habilitado;
+  btn.disabled = !habilitado;
+  input.placeholder = placeholder;
+}
+
 /**
  * Inicia un flujo limpio mediante payload explícito.
  * /aprender_vocabulario o /iniciar_cuento disparan el intent
@@ -474,6 +591,118 @@ async function iniciarFlujo(payload) {
       body: JSON.stringify({ sender: senderID, message: '/restart' })
     });
   } catch(_) {}
+  await enviarARasa(payload);
+}
+
+/**
+ * Renderiza la biblioteca de cuentos como tarjetas en el área de chat.
+ * Consulta /cuentos/<sender_id> para obtener metadatos + progreso del usuario.
+ */
+async function mostrarBibliotecaCuentos() {
+  const cont = document.getElementById('mensajes');
+  document.getElementById('quick-replies').innerHTML = '';
+  setInputHabilitado(false, 'Selecciona un cuento desde la biblioteca');
+  cont.innerHTML = '<div class="cuentos-biblioteca"><div class="subtitle">Cargando cuentos...</div></div>';
+
+  try {
+    const resp = await fetch(`/cuentos/${encodeURIComponent(senderID)}`);
+    const data = await resp.json();
+    const cuentos = data.cuentos || [];
+
+    if (cuentos.length === 0) {
+      cont.innerHTML = `
+        <div class="cuentos-biblioteca">
+          <h2>📚 Biblioteca de cuentos</h2>
+          <p class="subtitle">No hay cuentos disponibles. Verifica el archivo cuentos.xlsx.</p>
+        </div>`;
+      return;
+    }
+
+    const html = [`
+      <div class="cuentos-biblioteca">
+        <h2>📚 Biblioteca de cuentos</h2>
+        <p class="subtitle">Elige una historia para comenzar tu aprendizaje.</p>
+    `];
+
+    cuentos.forEach(c => {
+      const completo = c.completados >= c.total && c.total > 0;
+      const enProgreso = c.completados > 0 && !completo;
+      const cssClase = completo ? 'cuento-card completado' : 'cuento-card';
+      const palabrasTxt = c.palabras && c.palabras.length
+        ? `<div class="cuento-palabras"><strong>Ejercita:</strong> ${c.palabras.join(', ')}</div>`
+        : '';
+
+      let progresoHTML;
+      if (completo) {
+        progresoHTML = `
+          <div class="cuento-progreso">
+            <span>✓ Completado · ${c.completados}/${c.total}</span>
+            <div class="track"><div class="fill" style="width:100%"></div></div>
+          </div>`;
+      } else if (enProgreso) {
+        progresoHTML = `
+          <div class="cuento-progreso">
+            <span>${c.completados}/${c.total}</span>
+            <div class="track"><div class="fill" style="width:${c.porcentaje}%"></div></div>
+          </div>`;
+      } else {
+        progresoHTML = `
+          <div class="cuento-progreso">
+            <span class="nuevo">Nuevo · ${c.total} fragmentos</span>
+            <div class="track"></div>
+          </div>`;
+      }
+
+      const btnLabel = completo ? 'Repasar' : (enProgreso ? 'Continuar' : 'Comenzar');
+      const btnClase = enProgreso ? 'continuar' : '';
+
+      html.push(`
+        <div class="${cssClase}">
+          <div class="cuento-head">
+            <div class="cuento-emoji">${c.emoji || '📖'}</div>
+            <div style="flex:1;">
+              <h3 class="cuento-titulo">${c.titulo}</h3>
+              <div class="cuento-desc">${c.descripcion || ''}</div>
+            </div>
+          </div>
+          ${palabrasTxt}
+          <div class="cuento-footer">
+            ${progresoHTML}
+            <button class="${btnClase}" onclick="iniciarCuento('${c.id}')">${btnLabel} →</button>
+          </div>
+        </div>
+      `);
+    });
+
+    html.push('</div>');
+    cont.innerHTML = html.join('');
+    cont.scrollTop = 0;
+  } catch (err) {
+    cont.innerHTML = `
+      <div class="cuentos-biblioteca">
+        <h2>📚 Biblioteca de cuentos</h2>
+        <p class="subtitle" style="color:#c33;">⚠️ No se pudo cargar la biblioteca: ${err.message}</p>
+      </div>`;
+  }
+}
+
+/**
+ * Inicia un cuento específico enviando un payload con el slot cuento_actual.
+ * Rasa interpreta /iniciar_cuento{"cuento_actual":"motelo_tigre"} como
+ * "disparar este intent y fijar este slot".
+ */
+async function iniciarCuento(cuentoId) {
+  setInputHabilitado(true, 'Escribe tu respuesta o usa los botones');
+  document.getElementById('mensajes').innerHTML = '';
+  document.getElementById('quick-replies').innerHTML = '';
+  try {
+    await fetch(RASA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender: senderID, message: '/restart' })
+    });
+  } catch(_) {}
+  const payload = `/iniciar_cuento{"cuento_actual":"${cuentoId}"}`;
   await enviarARasa(payload);
 }
 
@@ -493,6 +722,7 @@ function setVista(vista) {
   const subtitulo   = document.getElementById('chat-subtitulo');
 
   if (vista === 'vocab') {
+    setInputHabilitado(true, 'Pregunta lo que desees');
     document.getElementById('btn-vocab').classList.add('active');
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
@@ -503,10 +733,11 @@ function setVista(vista) {
     document.getElementById('btn-cuento').classList.add('active');
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
-    titulo.textContent    = 'Cuento Interactivo';
-    subtitulo.textContent = 'El Pescador Shipibo';
-    if (!primeraVista) iniciarFlujo('/iniciar_cuento');
+    titulo.textContent    = 'Cuentos interactivos';
+    subtitulo.textContent = 'Elige una historia para comenzar';
+    if (!primeraVista) mostrarBibliotecaCuentos();
   } else if (vista === 'progreso') {
+    setInputHabilitado(false, 'La mensajeria no esta disponible en esta vista');
     document.getElementById('btn-progreso').classList.add('active');
     chatView.style.display = 'none';
     panelProg.classList.add('visible');
@@ -593,6 +824,7 @@ function quitarTyping() {
 // ── Envío a Rasa ────────────────────────────────────────────────────
 async function enviar(texto) {
   const input = document.getElementById('input-msg');
+  if (texto === undefined && input.disabled) return;
   const msg   = (texto !== undefined ? texto : input.value).trim();
   if (!msg) return;
   if (texto === undefined) input.value = '';

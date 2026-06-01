@@ -22,6 +22,7 @@ intents:
 entities:
   - palabra_objetivo
   - modo
+  - cuento_actual
 
 slots:
   flujo_actual:
@@ -77,6 +78,8 @@ slots:
     type: text
     influence_conversation: false
     mappings:
+      - type: from_entity
+        entity: cuento_actual
       - type: custom
 
   # Dirección de la práctica de vocabulario:
@@ -153,7 +156,6 @@ actions:
   - action_evaluar_respuesta_vocab
   - action_dar_pista_vocab
   - action_repetir_ultima_palabra
-  - action_continuar_vocabulario
   - action_iniciar_cuento
   - action_siguiente_fragmento
   - action_evaluar_respuesta_cuento
