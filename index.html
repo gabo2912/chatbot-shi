@@ -395,6 +395,30 @@ body {
 .cuento-card button:hover { background: #2d3a1c; }
 .cuento-card button.continuar { background: #5a6f3a; }
 .cuento-card button.continuar:hover { background: #4a5d30; }
+
+/* ── Selector de categoría de vocabulario (minimalista) ─────────────── */
+.selector-categoria { padding: 2rem 1rem; max-width: 520px; margin: 0 auto; }
+.selector-categoria h2 { color: #3b4a24; font-size: 1.2rem; margin: 0 0 .35rem 0; text-align: center; }
+.selector-categoria .subtitle { color: #6b6b5e; font-size: .9rem; margin-bottom: 1.5rem; text-align: center; }
+.categoria-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.categoria-btn {
+  display: flex; align-items: center; gap: .8rem;
+  background: #fff; border: 2px solid #e6e3d4; border-radius: 12px;
+  padding: .9rem 1rem; font-family: inherit; cursor: pointer;
+  transition: all .15s ease; text-align: left;
+}
+.categoria-btn:hover {
+  border-color: #3b4a24; background: #f9f6e8;
+  transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.categoria-btn .emoji { font-size: 1.5rem; flex-shrink: 0; }
+.categoria-btn .info { flex: 1; display: flex; flex-direction: column; }
+.categoria-btn .nombre { font-weight: 700; color: #2d3a1c; font-size: .95rem; }
+.categoria-btn .total { font-size: .75rem; color: #888; margin-top: .1rem; }
+.categoria-btn .pct {
+  font-size: .7rem; color: #3b4a24; background: #f0dea0;
+  padding: .15rem .45rem; border-radius: 10px; margin-left: .35rem; font-weight: 600;
+}
 .cat-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: .5rem;
@@ -706,6 +730,73 @@ async function iniciarCuento(cuentoId) {
   await enviarARasa(payload);
 }
 
+/**
+ * Selector de categoría de vocabulario: 5 botones en grid 2x3 con
+ * progreso por categoría leído del endpoint /progreso/<sender_id>.
+ */
+async function mostrarSelectorCategoria() {
+  setInputHabilitado(true, 'Escribe tu respuesta o usa los botones');
+  const cont = document.getElementById('mensajes');
+  document.getElementById('quick-replies').innerHTML = '';
+  cont.innerHTML = '<div class="selector-categoria"><div class="subtitle">Cargando...</div></div>';
+
+  const CATEGORIAS = [
+    { id: 'naturaleza', emoji: '🌿', nombre: 'Naturaleza', total: 11 },
+    { id: 'animales',   emoji: '🦜', nombre: 'Animales',   total: 13 },
+    { id: 'cuerpo',     emoji: '🫀', nombre: 'Cuerpo',     total: 12 },
+    { id: 'colores',    emoji: '🎨', nombre: 'Colores',    total:  9 },
+    { id: 'objetos',    emoji: '🏺', nombre: 'Objetos',    total:  9 },
+  ];
+
+  let progresoCats = {};
+  try {
+    const resp = await fetch(`/progreso/${encodeURIComponent(senderID)}`);
+    const data = await resp.json();
+    (data.categorias || []).forEach(c => {
+      progresoCats[c.categoria] = c.porcentaje;
+    });
+  } catch(_) {}
+
+  const html = [`
+    <div class="selector-categoria">
+      <h2>¿Qué categoría quieres practicar?</h2>
+      <p class="subtitle">Elige una para comenzar tu práctica de vocabulario.</p>
+      <div class="categoria-grid">
+  `];
+
+  CATEGORIAS.forEach(c => {
+    const pct = progresoCats[c.id] || 0;
+    const pctTag = pct > 0 ? `<span class="pct">${pct}%</span>` : '';
+    html.push(`
+      <button class="categoria-btn" onclick="iniciarVocabulario('${c.id}')">
+        <span class="emoji">${c.emoji}</span>
+        <span class="info">
+          <span class="nombre">${c.nombre} ${pctTag}</span>
+          <span class="total">${c.total} palabras</span>
+        </span>
+      </button>
+    `);
+  });
+
+  html.push('</div></div>');
+  cont.innerHTML = html.join('');
+  cont.scrollTop = 0;
+}
+
+async function iniciarVocabulario(categoria) {
+  setInputHabilitado(true, 'Escribe tu respuesta o usa los botones');
+  document.getElementById('mensajes').innerHTML = '';
+  document.getElementById('quick-replies').innerHTML = '';
+  try {
+    await fetch(RASA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender: senderID, message: '/restart' })
+    });
+  } catch(_) {}
+  await enviarARasa(`/aprender_vocabulario{"categoria_actual":"${categoria}"}`);
+}
+
 function actualizarSidebar() {
   const ini = userName ? userName[0].toUpperCase() : 'U';
   document.getElementById('user-initials').textContent  = ini;
@@ -727,8 +818,8 @@ function setVista(vista) {
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
     titulo.textContent    = 'Aprendizaje de Vocabulario';
-    subtitulo.textContent = 'Shipibo-Konibo';
-    if (!primeraVista) iniciarFlujo('/aprender_vocabulario');
+    subtitulo.textContent = 'Elige una categoría';
+    if (!primeraVista) mostrarSelectorCategoria();
   } else if (vista === 'cuento') {
     document.getElementById('btn-cuento').classList.add('active');
     chatView.style.display = 'flex';
@@ -857,6 +948,23 @@ async function enviar(texto) {
 }
 
 async function enviarARasa(msg) {
+  // Capturar selección de modo y guardar en localStorage
+  if (msg && msg.startsWith && msg.startsWith('/seleccionar_modo')) {
+    const m = msg.match(/\{[^}]+\}/);
+    if (m) {
+      try {
+        const obj = JSON.parse(m[0]);
+        if (obj.modo === 'es_a_shp' || obj.modo === 'shp_a_es') {
+          localStorage.setItem('pishico_modo_practica', obj.modo);
+        }
+      } catch(_) {}
+    }
+  }
+  // Inyectar modo guardado en payloads de vocabulario
+  if (msg && msg.startsWith && msg.startsWith('/aprender_vocabulario')) {
+    msg = inyectarModoEnPayload(msg);
+  }
+
   mostrarTyping();
   try {
     const resp = await fetch(RASA, {
@@ -873,6 +981,23 @@ async function enviarARasa(msg) {
     quitarTyping();
     addMessage('bot', '⚠️ Error de conexión. Verificá que Rasa esté activo.', []);
   }
+}
+
+function inyectarModoEnPayload(payload) {
+  const modo = localStorage.getItem('pishico_modo_practica');
+  if (!modo) return payload;
+  if (payload.includes('{')) {
+    const match = payload.match(/^(\/\w+)(\{.*\})$/);
+    if (match) {
+      try {
+        const obj = JSON.parse(match[2]);
+        if (!('modo_practica' in obj)) obj.modo_practica = modo;
+        return match[1] + JSON.stringify(obj);
+      } catch(_) { return payload; }
+    }
+    return payload;
+  }
+  return `${payload}{"modo_practica":"${modo}"}`;
 }
 
 // ── Progreso local (localStorage) ──────────────────────────────────

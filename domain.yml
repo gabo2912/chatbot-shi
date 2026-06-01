@@ -91,7 +91,8 @@ slots:
     values:
       - es_a_shp
       - shp_a_es
-    initial_value: es_a_shp
+    # Sin initial_value: para que la primera vez del usuario se muestre
+    # el selector de modo antes de comenzar las preguntas.
     influence_conversation: false
     mappings:
       - type: custom

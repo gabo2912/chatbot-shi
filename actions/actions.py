@@ -447,17 +447,34 @@ class ActionIniciarVocabulario(Action):
             )
             return []
 
-        # Determinar categoría: la que el usuario mencionó, la siguiente,
-        # la ultima usada por el usuario, o la primera disponible como fallback.
+        # Determinar categoría: por payload (frontend), por texto, retomada
+        # de la DB, o fallback a la primera disponible.
         texto = (tracker.latest_message or {}).get("text", "").lower()
         CATEGORIAS_VALIDAS = [c for c in VOCABULARIO.keys() if VOCABULARIO.get(c)]
 
-        # 1) Categoría mencionada explícitamente en el texto
+        # 0) Categoría enviada explícitamente por el frontend en el payload
+        #    /aprender_vocabulario{"categoria_actual":"animales"}.
+        #    Es la fuente más confiable: el usuario hizo clic en un botón.
         categoria = None
-        for cat in CATEGORIAS_VALIDAS:
-            if cat in texto:
-                categoria = cat
-                break
+        slot_cat = tracker.get_slot("categoria_actual")
+        if slot_cat in CATEGORIAS_VALIDAS:
+            # Solo confiar en el slot si vino del último mensaje (entidad o
+            # payload). Si era un valor remanente de un turno anterior, lo
+            # ignoramos para evitar pegarse a una categoría vieja.
+            ents = (tracker.latest_message or {}).get("entities", [])
+            from_payload = any(
+                e.get("entity") == "categoria_actual" or e.get("value") == slot_cat
+                for e in ents
+            ) or f'"categoria_actual"' in (tracker.latest_message or {}).get("text", "")
+            if from_payload:
+                categoria = slot_cat
+
+        # 1) Categoría mencionada explícitamente en el texto
+        if categoria is None:
+            for cat in CATEGORIAS_VALIDAS:
+                if cat in texto:
+                    categoria = cat
+                    break
 
         # 2) "otra", "diferente", "siguiente", "cambiar" → avanzar a la siguiente
         if categoria is None and any(p in texto for p in ("otra", "diferente", "siguiente", "cambiar", "nuevo")):
@@ -556,6 +573,9 @@ class ActionIniciarVocabulario(Action):
             SlotSet("intentos_palabra", 0),
             SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
+            # Activamos el form desde aquí porque la regla ya no lo hace
+            # automáticamente (ver rules.yml).
+            FollowupAction("actividad_form"),
         ]
 
 
@@ -720,25 +740,6 @@ class ActionRepetirUltimaPalabra(Action):
             dispatcher.utter_message(text=f"Lo repito:\n\n{ultima}")
         else:
             dispatcher.utter_message(text="No tengo nada que repetir todavía.")
-        return []
-
-
-class ActionContinuarVocabulario(Action):
-    def name(self) -> Text:
-        return "action_continuar_vocabulario"
-
-    def run(self, dispatcher, tracker, domain):
-        palabra_es = tracker.get_slot("palabra_actual")
-        categoria = tracker.get_slot("categoria_actual")
-        if palabra_es and categoria:
-            modo = _get_modo(tracker)
-            info = encontrar_palabra(categoria, palabra_es)
-            if info:
-                pregunta = _formular_pregunta(info, modo)
-                mensaje = f"Volvamos a lo nuestro. {pregunta}"
-                dispatcher.utter_message(text=mensaje)
-                return [SlotSet("ultima_respuesta_bot", mensaje)]
-        dispatcher.utter_message(text="Escribe **aprender vocabulario** para iniciar una práctica.")
         return []
 
 
@@ -1003,30 +1004,6 @@ class ActionTraducir(Action):
             dispatcher.utter_message(
                 text=f"Por ahora no tengo la traducción de '{palabra}' en mi diccionario base. 🌱"
             )
-        return []
-
-
-class ActionRetomarFlujo(Action):
-    """Re-emite una invitación amable a continuar el flujo donde el usuario estaba.
-
-    Lógica simple: mira `flujo_actual` y delega a la acción de continuar
-    correspondiente. Si no hay flujo, no hace nada.
-    """
-    def name(self) -> Text:
-        return "action_retomar_flujo"
-
-    def run(self, dispatcher, tracker, domain):
-        flujo = tracker.get_slot("flujo_actual")
-        if flujo == "vocabulario":
-            palabra = tracker.get_slot("palabra_actual")
-            if palabra:
-                mensaje = f"Volvamos. ¿Cómo se dice **{palabra}** en shipibo?"
-                dispatcher.utter_message(text=mensaje)
-                return [SlotSet("ultima_respuesta_bot", mensaje)]
-        elif flujo == "cuento":
-            mensaje = "¿Continuamos con el cuento? Dime 'sí' o 'continuar'."
-            dispatcher.utter_message(text=mensaje)
-            return [SlotSet("ultima_respuesta_bot", mensaje)]
         return []
 
 

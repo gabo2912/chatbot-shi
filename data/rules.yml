@@ -64,6 +64,9 @@ rules:
   # Flujo básico 1: vocabulario
   # ─────────────────────────────────────────────
   - rule: Iniciar vocabulario desde estado libre
+    # La activación del form se hace DESDE la acción (FollowupAction) cuando
+    # ya hay un modo de práctica elegido. Si es la primera vez del usuario,
+    # la acción muestra el selector de modo y NO activa el form todavía.
     condition:
       - active_loop: null
       - slot_was_set:
@@ -71,10 +74,6 @@ rules:
     steps:
       - intent: aprender_vocabulario
       - action: action_iniciar_vocabulario
-      - slot_was_set:
-          - flujo_actual: vocabulario
-      - action: actividad_form
-      - active_loop: actividad_form
 
   - rule: Evaluar respuesta de vocabulario al cerrar form
     condition:
