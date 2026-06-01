@@ -252,6 +252,10 @@ body {
   border-top: 1px solid var(--border);
   display: flex; align-items: center; gap: .6rem;
   flex-shrink: 0;
+  transition: opacity .2s ease;
+}
+#input-area.is-disabled {
+  opacity: .5;
 }
 #input-msg {
   flex: 1; padding: .65rem 1rem;
@@ -271,6 +275,10 @@ body {
 #btn-send:hover  { background: #1e4fc0; }
 #btn-send:active { transform: scale(.94); }
 #btn-send svg { width: 18px; height: 18px; color: #fff; }
+#input-msg:disabled,
+#btn-send:disabled {
+  cursor: not-allowed;
+}
 
 /* ── Panel Mi Aprendizaje ─────────────────────────────────────── */
 #panel-progreso {
@@ -595,9 +603,11 @@ function iniciarApp() {
 function setInputHabilitado(habilitado, placeholder = 'Pregunta lo que desees') {
   const input = document.getElementById('input-msg');
   const btn = document.getElementById('btn-send');
+  const area = document.getElementById('input-area');
   input.disabled = !habilitado;
   btn.disabled = !habilitado;
   input.placeholder = placeholder;
+  area.classList.toggle('is-disabled', !habilitado);
 }
 
 /**
@@ -735,7 +745,7 @@ async function iniciarCuento(cuentoId) {
  * progreso por categoría leído del endpoint /progreso/<sender_id>.
  */
 async function mostrarSelectorCategoria() {
-  setInputHabilitado(true, 'Escribe tu respuesta o usa los botones');
+  setInputHabilitado(false, 'Selecciona una categoría para empezar');
   const cont = document.getElementById('mensajes');
   document.getElementById('quick-replies').innerHTML = '';
   cont.innerHTML = '<div class="selector-categoria"><div class="subtitle">Cargando...</div></div>';
@@ -813,7 +823,7 @@ function setVista(vista) {
   const subtitulo   = document.getElementById('chat-subtitulo');
 
   if (vista === 'vocab') {
-    setInputHabilitado(true, 'Pregunta lo que desees');
+    setInputHabilitado(false, 'Selecciona una categoría para empezar');
     document.getElementById('btn-vocab').classList.add('active');
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
@@ -821,6 +831,7 @@ function setVista(vista) {
     subtitulo.textContent = 'Elige una categoría';
     if (!primeraVista) mostrarSelectorCategoria();
   } else if (vista === 'cuento') {
+    setInputHabilitado(false, 'Selecciona un cuento desde la biblioteca');
     document.getElementById('btn-cuento').classList.add('active');
     chatView.style.display = 'flex';
     panelProg.classList.remove('visible');
