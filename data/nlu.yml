@@ -639,3 +639,13 @@ nlu:
     - cambiar la forma de practicar
     - otra dirección de práctica
     - prefiero el otro modo
+
+- intent: conversar
+  examples: |
+    - quiero conversar
+    - vamos a hablar
+    - hablemos
+    - quiero practicar conversación
+    - conversemos un rato
+    - quiero charlar
+    - dialoguemos

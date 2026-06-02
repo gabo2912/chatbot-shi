@@ -483,6 +483,12 @@ body {
         </svg>
         CUENTOS
       </button>
+      <button class="nav-btn" id="btn-conversar" onclick="setVista('conversar')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        CONVERSAR
+      </button>
       <button class="nav-btn" id="btn-progreso" onclick="setVista('progreso')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
@@ -807,6 +813,23 @@ async function iniciarVocabulario(categoria) {
   await enviarARasa(`/aprender_vocabulario{"categoria_actual":"${categoria}"}`);
 }
 
+/**
+ * Inicia el modo conversación libre. Reinicia el contexto y muestra
+ * la bienvenida con sugerencias.
+ */
+async function iniciarConversacion() {
+  document.getElementById('mensajes').innerHTML = '';
+  document.getElementById('quick-replies').innerHTML = '';
+  try {
+    await fetch(RASA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender: senderID, message: '/restart' })
+    });
+  } catch(_) {}
+  await enviarARasa('/conversar');
+}
+
 function actualizarSidebar() {
   const ini = userName ? userName[0].toUpperCase() : 'U';
   document.getElementById('user-initials').textContent  = ini;
@@ -817,6 +840,7 @@ function actualizarSidebar() {
 // ── Navegación ──────────────────────────────────────────────────────
 function setVista(vista) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  window._enModoConversar = (vista === 'conversar');
   const chatView    = document.getElementById('chat-view');
   const panelProg   = document.getElementById('panel-progreso');
   const titulo      = document.getElementById('chat-titulo');
@@ -838,6 +862,14 @@ function setVista(vista) {
     titulo.textContent    = 'Cuentos interactivos';
     subtitulo.textContent = 'Elige una historia para comenzar';
     if (!primeraVista) mostrarBibliotecaCuentos();
+  } else if (vista === 'conversar') {
+    setInputHabilitado(true, 'Escribe en español o shipibo...');
+    document.getElementById('btn-conversar').classList.add('active');
+    chatView.style.display = 'flex';
+    panelProg.classList.remove('visible');
+    titulo.textContent    = 'Conversa conmigo';
+    subtitulo.textContent = 'Modo libre — shipibo y español';
+    iniciarConversacion();
   } else if (vista === 'progreso') {
     setInputHabilitado(false, 'La mensajeria no esta disponible en esta vista');
     document.getElementById('btn-progreso').classList.add('active');
@@ -927,9 +959,34 @@ function quitarTyping() {
 async function enviar(texto) {
   const input = document.getElementById('input-msg');
   if (texto === undefined && input.disabled) return;
-  const msg   = (texto !== undefined ? texto : input.value).trim();
+  let msg   = (texto !== undefined ? texto : input.value).trim();
   if (!msg) return;
   if (texto === undefined) input.value = '';
+
+  // En modo conversación libre, envolvemos el texto plano como payload
+  // /conversar{"texto_usuario":"..."} para que la acción lo reciba como slot.
+  // Los payloads que ya empiezan con '/' (clics en botones) pasan tal cual.
+  const enConversar = window._enModoConversar === true;
+  if (enConversar && !msg.startsWith('/')) {
+    addMessage('user', msg);
+    const limpio = msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const payload = `/conversar{"texto_usuario":"${limpio}"}`;
+    mostrarTyping();
+    try {
+      const resp = await fetch(RASA, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: senderID, message: payload })
+      });
+      const data = await resp.json();
+      quitarTyping();
+      data.forEach(m => { if (m.text) addMessage('bot', m.text, m.buttons || []); });
+    } catch(_) {
+      quitarTyping();
+      addMessage('bot', '⚠️ Error de conexión.', []);
+    }
+    return;
+  }
 
   addMessage('user', msg);
   mostrarTyping();

@@ -50,6 +50,12 @@ from cuentos_loader import (
     CUENTO_PREDETERMINADO,
 )
 
+from interaccion_loader import (
+    buscar_frase as _buscar_frase_conv,
+    frases_ejemplo as _frases_ejemplo,
+    frases_disponibles as _frases_conv_disponibles,
+)
+
 
 
 # El cuento se carga dinámicamente desde actions/corpus/cuentos.xlsx
@@ -515,37 +521,13 @@ class ActionIniciarVocabulario(Action):
                 palabra = info_retomada
 
         # ── Modo de práctica ────────────────────────────────────────────
-        # Si nunca eligió modo, se muestra el selector como primer paso
-        # y no se activa el form todavía. La elección persiste y la próxima
-        # vez salta este paso. Los slots de actividad sí se preparan para
-        # que, al elegir modo, ya esté todo listo.
+        # Si no hay modo elegido todavía, se usa es_a_shp por defecto.
+        # El usuario puede cambiarlo después con el botón "Cambiar modo".
         modo_actual = tracker.get_slot("modo_practica")
-        primera_vez = modo_actual not in (MODO_ES_A_SHP, MODO_SHP_A_ES)
+        if modo_actual not in (MODO_ES_A_SHP, MODO_SHP_A_ES):
+            modo_actual = MODO_ES_A_SHP
 
-        if primera_vez:
-            dispatcher.utter_message(
-                text=(
-                    "Antes de empezar: ¿cómo prefieres practicar?\n\n"
-                    "• **Español → Shipibo**: te muestro la palabra en español "
-                    "y tú me dices cómo se dice en shipibo (producir).\n"
-                    "• **Shipibo → Español**: te muestro la palabra en shipibo "
-                    "y tú me dices qué significa (reconocer).\n\n"
-                    "Puedes cambiar de modo en cualquier momento."
-                ),
-                buttons=_botones_modo(MODO_ES_A_SHP),
-            )
-            return [
-                SlotSet("flujo_actual", "vocabulario"),
-                SlotSet("categoria_actual", categoria),
-                SlotSet("palabra_actual", palabra["es"]),
-                SlotSet("fragmento_actual", 0),
-                SlotSet("intentos_palabra", 0),
-                SlotSet("respuesta_actividad", None),
-                # No fijamos ultima_respuesta_bot aquí porque no es una
-                # pregunta que se pueda "repetir": es el selector inicial.
-            ]
-
-        # Camino normal: el usuario ya tiene un modo elegido
+        # Formular la pregunta directamente, sin selector intermedio
         pregunta = _formular_pregunta(palabra, modo_actual)
 
         if palabra_retomada and palabra["es"] == palabra_retomada:
@@ -573,6 +555,7 @@ class ActionIniciarVocabulario(Action):
             SlotSet("intentos_palabra", 0),
             SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
+            SlotSet("modo_practica", modo_actual),
             # Activamos el form desde aquí porque la regla ya no lo hace
             # automáticamente (ver rules.yml).
             FollowupAction("actividad_form"),
@@ -1126,3 +1109,167 @@ class ActionVerProgreso(Action):
             ]
         )
         return []
+
+
+class ActionResponderConversacion(Action):
+    """
+    Maneja el flujo de conversación libre (tercer modo del sidebar).
+
+    El frontend envía cada mensaje del usuario como payload explícito:
+        /conversar{"texto_usuario": "<texto literal>"}
+
+    La acción procesa el texto en este orden de prioridad:
+      1. ¿Es una palabra del corpus (54 palabras)? → da la traducción.
+      2. ¿Es una frase del corpus conversacional? → responde con la
+         equivalencia en el idioma opuesto.
+      3. (RAG, pendiente) ¿Es pregunta cultural? → buscará en el PDF.
+      4. Fallback: sugiere ejemplos de lo que puede hacer.
+    """
+
+    def name(self) -> Text:
+        return "action_responder_conversacion"
+
+    def run(self, dispatcher, tracker, domain):
+        # El texto del usuario puede venir por tres caminos:
+        #   1) Slot texto_usuario (si Rasa lo seteo desde el payload)
+        #   2) Entidad texto_usuario en latest_message (formato /intent{"slot":"v"})
+        #   3) Parseo manual del JSON del payload (resiliencia)
+        import json
+        import re
+
+        texto = (tracker.get_slot("texto_usuario") or "").strip()
+
+        if not texto:
+            for ent in (tracker.latest_message or {}).get("entities", []):
+                if ent.get("entity") == "texto_usuario":
+                    texto = (ent.get("value") or "").strip()
+                    if texto:
+                        break
+
+        if not texto:
+            raw = (tracker.latest_message or {}).get("text", "") or ""
+            m = re.search(r"\{.*\}", raw)
+            if m:
+                try:
+                    data = json.loads(m.group(0))
+                    texto = str(data.get("texto_usuario", "") or "").strip()
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        # Si no hay texto utilizable, mostrar bienvenida (entrada al modo)
+        if not texto:
+            return self._enviar_bienvenida(dispatcher)
+
+        texto_norm = normalizar(texto)
+
+        # ── Prioridad 1: palabra del corpus de 54 palabras ─────────────
+        traduccion = _traducir_corpus(texto_norm)
+        if traduccion and len(texto_norm.split()) <= 2:
+            es_shipibo = (
+                texto_norm in DICCIONARIO
+                and DICCIONARIO[texto_norm] != texto_norm
+                and traduccion != texto_norm
+            )
+            if es_shipibo:
+                # texto está en shipibo, traduccion está en español
+                mensaje = (
+                    f"🔄 **{texto}** en shipibo significa **{traduccion}** "
+                    f"en español. 🌿"
+                )
+            else:
+                # texto está en español, traduccion está en shipibo
+                mensaje = (
+                    f"🔄 **{texto}** en español se dice **{traduccion}** "
+                    f"en shipibo. 🌿"
+                )
+            dispatcher.utter_message(text=mensaje)
+            return [
+                SlotSet("flujo_actual", "conversar"),
+                SlotSet("texto_usuario", None),
+                SlotSet("ultima_respuesta_bot", mensaje),
+            ]
+
+        # ── Prioridad 2: frase del corpus conversacional ───────────────
+        if _frases_conv_disponibles():
+            match = _buscar_frase_conv(texto)
+            if match:
+                if match["idioma_detectado"] == "shp":
+                    mensaje = (
+                        f"💬 Reconozco esa frase. **{match['shp']}** en "
+                        f"shipibo significa **{match['es']}** en español.\n\n"
+                        f"_(categoría: {match['categoria']})_"
+                    )
+                else:
+                    mensaje = (
+                        f"💬 En shipibo, **{match['es']}** se dice "
+                        f"**{match['shp']}**.\n\n"
+                        f"_(categoría: {match['categoria']})_"
+                    )
+                dispatcher.utter_message(text=mensaje)
+                return [
+                    SlotSet("flujo_actual", "conversar"),
+                    SlotSet("texto_usuario", None),
+                    SlotSet("ultima_respuesta_bot", mensaje),
+                ]
+
+        # ── Prioridad 3: consulta cultural (RAG pendiente) ─────────────
+        es_pregunta = (
+            "?" in texto
+            or texto.lower().split()[0:1] and texto.lower().split()[0] in
+                {"qué", "que", "cómo", "como", "por", "dónde", "donde", "cuál", "cual"}
+        )
+        if es_pregunta:
+            mensaje = (
+                "📚 Esa parece una pregunta sobre cultura shipibo. "
+                "Pronto podré responder buscando en documentos culturales. "
+                "Por ahora, probá pidiéndome la traducción de una palabra "
+                "o decime un saludo."
+            )
+            dispatcher.utter_message(text=mensaje)
+            return [
+                SlotSet("flujo_actual", "conversar"),
+                SlotSet("texto_usuario", None),
+                SlotSet("ultima_respuesta_bot", mensaje),
+            ]
+
+        # ── Fallback: sugerencias ──────────────────────────────────────
+        return self._enviar_fallback(dispatcher, texto)
+
+    def _enviar_bienvenida(self, dispatcher) -> List[EventType]:
+        ejemplos = _frases_ejemplo(4) if _frases_conv_disponibles() else []
+        if ejemplos:
+            sugerencias = "\n".join(
+                f"• Decime **'{f['es']}'** o **'{f['shp']}'**"
+                for f in ejemplos[:3]
+            )
+        else:
+            sugerencias = "• Decime **'Hola'**\n• Pedime traducir una palabra"
+
+        mensaje = (
+            "💬 ¡Bienvenido al modo conversación!\n\n"
+            "Acá podés hablar conmigo en español o en shipibo. "
+            "Algunas cosas que podés probar:\n\n"
+            f"{sugerencias}\n"
+            "• Preguntame **'¿qué significa jene?'**\n"
+            "• Consultame sobre la cultura shipibo (próximamente)"
+        )
+        dispatcher.utter_message(text=mensaje)
+        return [
+            SlotSet("flujo_actual", "conversar"),
+            SlotSet("texto_usuario", None),
+            SlotSet("ultima_respuesta_bot", mensaje),
+        ]
+
+    def _enviar_fallback(self, dispatcher, texto: str) -> List[EventType]:
+        mensaje = (
+            f"🤔 No reconozco **\"{texto[:60]}\"** todavía. Probá:\n\n"
+            "• Un saludo como **'Hola'** o **'Jawekeskarin'**\n"
+            "• Una palabra del corpus, como **'agua'** o **'jene'**\n"
+            "• Una pregunta sobre cultura shipibo (próximamente)"
+        )
+        dispatcher.utter_message(text=mensaje)
+        return [
+            SlotSet("flujo_actual", "conversar"),
+            SlotSet("texto_usuario", None),
+            SlotSet("ultima_respuesta_bot", mensaje),
+        ]

@@ -215,6 +215,20 @@ rules:
   # intent la hace ValidateActividadForm, que muestra el selector
   # sin cerrar la actividad.
   # ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
+  # Modo conversación libre (tercer apartado)
+  # El frontend envía cada mensaje del usuario como payload explícito
+  # /conversar{"texto_usuario":"..."}. La acción procesa el texto y
+  # decide: traducir palabra del corpus, responder frase conversacional,
+  # buscar en RAG (futuro), o sugerir.
+  # ─────────────────────────────────────────────
+  - rule: Responder conversación libre
+    condition:
+      - active_loop: null
+    steps:
+      - intent: conversar
+      - action: action_responder_conversacion
+
   # Cambio de modo durante una actividad: cerrar el form,
   # delegar a action_seleccionar_modo (que aplica el modo y reactiva
   # el form vía FollowupAction).

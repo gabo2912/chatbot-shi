@@ -18,11 +18,14 @@ intents:
   - out_of_scope
   - ver_mi_progreso
   - seleccionar_modo
+  - conversar
 
 entities:
   - palabra_objetivo
   - modo
   - cuento_actual
+  - categoria_actual
+  - texto_usuario
 
 slots:
   flujo_actual:
@@ -30,6 +33,7 @@ slots:
     values:
       - vocabulario
       - cuento
+      - conversar
       - ninguno
     initial_value: ninguno
     influence_conversation: true
@@ -52,6 +56,8 @@ slots:
       - objetos
     influence_conversation: false
     mappings:
+      - type: from_entity
+        entity: categoria_actual
       - type: custom
 
   fragmento_actual:
@@ -80,6 +86,17 @@ slots:
     mappings:
       - type: from_entity
         entity: cuento_actual
+      - type: custom
+
+  # Texto crudo que el usuario envía en el modo conversación libre.
+  # El frontend lo envía vía payload /conversar{"texto_usuario": "..."}.
+  # Rasa lo extrae automáticamente como entity y lo asigna al slot.
+  texto_usuario:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: texto_usuario
       - type: custom
 
   # Dirección de la práctica de vocabulario:
@@ -166,6 +183,7 @@ actions:
   - action_traducir
   - action_ver_progreso
   - action_seleccionar_modo
+  - action_responder_conversacion
   - validate_actividad_form
 
 session_config:
