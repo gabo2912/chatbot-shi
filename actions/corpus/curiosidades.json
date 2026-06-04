@@ -1,0 +1,339 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "fuente_pdf": "Shipibo: territorio, historia y cosmovisión",
+    "total_palabras_corpus": 54,
+    "palabras_con_curiosidad": 40,
+    "nota": "Estructura compatible con RAG: cuando se active, las entradas pueden venir de búsqueda en chunks en lugar de este JSON estático."
+  },
+  "curiosidades": {
+    "pez": [
+      {
+        "texto": "Peces que se encuentran en el territorio shipibo PEZ Amakiri Momento del día en que se encuentra Creciente, merma, día.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Caso de que en un lugar abundara -por ejemplo, en las cochas- un tipo de pez, recibía el nombre de ese pez.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "perro": [
+      {
+        "texto": "Pachitea es de Ochiti-ya, ochiti es perro del monte, antes había perro del monte.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Un perro dijo: –Nuestros antepasados se han muerto con la enfermedad chami, pero otros nuevos han salido y por eso estamos contentos.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "mono": [
+      {
+        "texto": "Por el camino encontró a su marido, que estaba viniendo con una carga de sajino, mono, bastante estaba trayendo.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "TIGRE Y EL MOTELO Un tiempo, el mono blanco había encontrado un motelito chiquito, una criíta.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "ave": [
+      {
+        "texto": "Hay un pajarito que viene en manada, que el tigre lo atrae, en shipibo se llama ino isa.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "serpiente": [
+      {
+        "texto": "Estos son un bosque muy grande, dentro del bosque está el chullachaqui, también está la víbora que le dicen xoken rono, que es una creencia.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "jaguar": [
+      {
+        "texto": "Suele trasladar, cada cierto tiempo, a los peces con el fin de protegerlos. ‘yacuruna’ - El jene ino Ser que cuida las cochas de los chaikoni.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Hacer remedios. shipibo: territorio, historia y cosmovisión Lagarto Choro Ino ‘tigre’ Dientes.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "pato": [
+      {
+        "texto": "Bosque Pato del monMañana. te o del agua Xoke Bosque. shipibo: territorio, historia y cosmovisión Peces.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "gallina": [
+      {
+        "texto": "Se vende pescado, carne, gallina, yuca, plátano, cocona, maíz, paiche (algunos pescadores), fariña y hojas de bijao.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "venado": [
+      {
+        "texto": "Dice que encuentra un venado. –¿Qué haces, motelo? –le pregunta. –Bueno, yo estoy andando, paseando.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "A ver, vamos a hacer una apuesta: si yo te gano en carrera, te mato y te como –le dice el motelo. –¿Qué me vas a ganar? –le dice el venado. –Ya, vamos a hacer una trocha para hacer una carrera.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "blanco": [
+      {
+        "texto": "TIGRE Y EL MOTELO Un tiempo, el mono blanco había encontrado un motelito chiquito, una criíta.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Entonces, como el mono blanco se come al motelo, lo ha llevado a una palmera que se llama shapaja.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "negro": [
+      {
+        "texto": "A este lado está el cerro donde se encuentran varios animales, por ejemplo, aquí está el tigre negro wiso ino.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Él amaneció negro, de ahí le conoció que es luna la que quería hacer relación con su hermana.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "verde": [
+      {
+        "texto": "Tal sentido, se parte del trabajo realizado por Elí Sánchez y colaboradores, en el Ojo Verde (2004), acerca de la cosmovisión del pueblo Shipibo, el cual permite un acercamiento a los mundos y a los seres que existen en la cosmovisión de este pueblo.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "amarillo": [
+      {
+        "texto": "Así, tenemos la relación entre Nai – Jakon Nete; Niwe – Panshin Nete; Jene – Jene Nete, y Mai – Non Nete. “Todos tienen relación, porque el ser humano no puede vivir sin agua, nosotros no podemos vivir sin agua, ellos no pueden vivir sin agua, sin los peces que hay abajo.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "boca": [
+      {
+        "texto": "Chonochinía es de xonochini-ya, porque había árboles de lupuna en la boca, xono es lupuna” (Antonio Sánchez, Túpac Amaru).",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "ojo": [
+      {
+        "texto": "Tal sentido, se parte del trabajo realizado por Elí Sánchez y colaboradores, en el Ojo Verde (2004), acerca de la cosmovisión del pueblo Shipibo, el cual permite un acercamiento a los mundos y a los seres que existen en la cosmovisión de este pueblo.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "cabeza": [
+      {
+        "texto": "Se chapea y se coloca en la cabeza. ‘dolor de cabeza’ Yoshin bechia Gases Cuerno de vaca y hoja de she- Se raspa el cuerno y se humea a la bón. niña o niño con hoja de shebón.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "pie": [
+      {
+        "texto": "Eso, el hombre vio que creció su pie y que de su dedo gordo, de ahí primero, le crecía la ayahuasca.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Al escuchar eso, comenzó a buscar de dónde provenía el sonido y vio un niño al pie del árbol catahua.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "corazón": [
+      {
+        "texto": "Más travieso dice: –Me voy a convertir en pucacuro, me voy a entrar en su tripa y le voy a cortar el corazón.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "cabello": [
+      {
+        "texto": "Bufeos se convierten en humanos, pero tienen un cabello así como los gringos, como decimos, pelo rubio, blancos y las mujeres son iguales.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "nariz": [
+      {
+        "texto": "Se lo metía a su nariz en ambos lados y le metía su… cómo se llama, su… con eso tranquilo se puede.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Este proceso se hace en la mañana, cuando hay luna nueva; se le echa o se le pone en la nariz.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "oreja": [
+      {
+        "texto": "Bosque Pato del monMañana. te o del agua Xoke Bosque. shipibo: territorio, historia y cosmovisión Peces.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "brazo": [
+      {
+        "texto": "Un lado de su brazo es bien largo que pueda atrapar a una persona desde lejos.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "pierna": [
+      {
+        "texto": "Otro, como era travieso, anteriormente ya le había golpeado la nariz del lagarto y este le había cortado su pierna al travieso y así se quedó.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "agua": [
+      {
+        "texto": "Agua es jene, la tierra es mai, el monte es diferente porque nosotros no podemos vivir en el monte, niimera, el cielo es nai” (José Rodríguez, 68 años).",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Mitos shipibo narran acerca de la existencia del Jene nete ‘mundo del agua’, donde existen seres entre los que se encuentra la gente del agua.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "sol": [
+      {
+        "texto": "Curas entraron primero” (Xawan Bari – Pascual Mawa Ochavano, 76 años, Junín Pablo). “En el Ucayali no existían los mestizos, había purito shipibos.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "árbol": [
+      {
+        "texto": "Yacupato respondió: –Este árbol se llama cedro, es apropiado para hacer canoas, lo creó nuestro dios para que podamos navegar ahí.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Lupuna, ya no es un árbol sagrado entre la juventud shipibo; la sacralidad, es “creencia de los viejos” dicen muchos.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "luna": [
+      {
+        "texto": "Este proceso se hace en la mañana, cuando hay luna nueva; se le echa o se le pone en la nariz.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Canoa se sopla con piri piri (noi waste, taya) en luna nueva para que los peces no se alejen de la canoa.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "río": [
+      {
+        "texto": "Antes, la comunidad estaba ubicada en el margen del río Ucayali, que se localizaba a diez minutos subiendo por la tahuampa.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "viento": [
+      {
+        "texto": "Se sabe que los seres del Niwe están bajando cuando el clima es sombrío o cuando hay demasiados truenos sin ser indicador de lluvia.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Xaba es un espacio vacío, mientras que Niwe está habitado por diversos seres o espíritus.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "lluvia": [
+      {
+        "texto": "Suelo donde no se acumula el agua o la lluvia es ideal para cualquier sembrío de yuca, plátano u otras especies.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Se sabe que los seres del Niwe están bajando cuando el clima es sombrío o cuando hay demasiados truenos sin ser indicador de lluvia.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "fuego": [
+      {
+        "texto": "Inicios, para el pueblo Shipibo, el cielo estaba muy cerca de la tierra y no necesitaban el fuego para cocinar la carne u otros alimentos, pues el sol podía hacerlo.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Shipibo usan el término “Inka” para referirse a la divinidad u hombre poderoso que tenía el monopolio sobre el maíz, la yuca y el fuego.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "tierra": [
+      {
+        "texto": "Agua es jene, la tierra es mai, el monte es diferente porque nosotros no podemos vivir en el monte, niimera, el cielo es nai” (José Rodríguez, 68 años).",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Conclusiones sobre noción de territorio-mundo EN RESUMEN • El pueblo Shipibo concibe el espacio donde vive como su mundo, Non Nete. • El mundo tiene cuatro espacios: el agua (Jene), la tierra (Mai), el aire (Niwe) y el cielo (Nai).",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "noche": [
+      {
+        "texto": "Esta forma es una fiera grande en el agua, que cuando siempre sale al aire, se convierte en una lancha en la noche.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Una vez me han contado, ha muerto una señora a tres casas de acá, de la noche a la mañana se muere.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "canoa": [
+      {
+        "texto": "Canoa ha llegado de Alto Ucayali, con canoa pintadito todo, estaba diseñado todo su cuerpo.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Abuelas y los abuelos comentan que se les escucha remando en su canoa, y repentinamente desaparecen en el espacio.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "casa": [
+      {
+        "texto": "Nombre shipibo se usaba en la casa, con la familia; incluso se mantenía la asignación de nombres por familiaridad, es decir, tal nombre le pertenecía a su abuelo, a su abuela, etc.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Toda la casa está hecha con madera y el techo está formado por hojas de shebón o irapay.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "olla": [
+      {
+        "texto": "Mujer calcula el tiempo de retorno de su pareja y ya tiene lista la olla donde preparará la comida.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Después, dicen: –¿Qué vamos a hacer? –Hay que comerlo –dice el más travieso. –Pero, ¿con qué? –Me voy a convertir en olla –el travieso también dice.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "comida": [
+      {
+        "texto": "Mujer calcula el tiempo de retorno de su pareja y ya tiene lista la olla donde preparará la comida.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Nuevamente cuando ha vuelto al lugar, también los ha encontrado otra vez, ya tenía la comida, pero no sabía quién la traía.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "ropa": [
+      {
+        "texto": "Socialización por o entre géneros también se da en el agua; por ejemplo cuando las mujeres lavan la ropa, cuando traen agua o al bañarse; lo mismo ocurre con los hombres, cuando pescan.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "libro": [
+      {
+        "texto": "Guía para estu Chirif, Alberto. (2004). “Época del caucho y barbarie”, publicado como introducción del libro El Proceso del Putumayo, del juez Carlos Valcárcel.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ],
+    "escuela": [
+      {
+        "texto": "Escuela de la comunidad, hace muchos años, fue reconocida como escuela bilingüe por el Ministerio de Educación.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      },
+      {
+        "texto": "Hecho, las cosmovisiones amazónicas, reconocen que plantas y animales poseen un espíritu y esto contrasta con lo que la escuela pueda decir al respecto. 2.2.",
+        "fuente": "Shipibo: territorio, historia y cosmovisión (PUCP/MINEDU)"
+      }
+    ]
+  }
+}

@@ -99,6 +99,17 @@ slots:
         entity: texto_usuario
       - type: custom
 
+  # Memoria de la última intención reconocida en el modo conversación.
+  # Permite que el bot varíe la respuesta cuando el usuario reitera una
+  # acción (ej. saludar dos veces seguidas) sin sentirse robótico.
+  # Valores: bienvenida | traduccion | frase | pregunta_cultural |
+  #          despedida | fallback
+  ultima_intencion_conv:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
   # Dirección de la práctica de vocabulario:
   #   es_a_shp -> se muestra la palabra en español, el alumno responde en shipibo (producción)
   #   shp_a_es -> se muestra la palabra en shipibo, el alumno responde en español (reconocimiento)

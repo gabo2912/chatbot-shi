@@ -9,7 +9,7 @@ Arquitectura:
     por el asesor lingüístico.
 """
 
-from typing import Any, Text, Dict, List
+from typing import Any, Text, Dict, List, Optional
 import unicodedata
 
 from rasa_sdk import Action, Tracker, FormValidationAction
@@ -50,11 +50,47 @@ from cuentos_loader import (
     CUENTO_PREDETERMINADO,
 )
 
-from interaccion_loader import (
-    buscar_frase as _buscar_frase_conv,
-    frases_ejemplo as _frases_ejemplo,
-    frases_disponibles as _frases_conv_disponibles,
-)
+# Import resiliente del loader de frases conversacionales.
+try:
+    from interaccion_loader import (
+        buscar_frase as _buscar_frase_conv,
+        frases_ejemplo as _frases_ejemplo,
+        frases_disponibles as _frases_conv_disponibles,
+    )
+except Exception as _int_err:
+    import logging as _log_int
+    _log_int.getLogger(__name__).warning(
+        "interaccion_loader no disponible (%s). "
+        "El modo conversación funcionará sin frases conversacionales.", _int_err
+    )
+    def _buscar_frase_conv(texto):
+        return None
+    def _frases_ejemplo(n=4):
+        return []
+    def _frases_conv_disponibles():
+        return False
+
+# Import resiliente del loader de curiosidades culturales.
+# Si el archivo curiosidades_loader.py no está disponible (por ejemplo,
+# no se copió a la carpeta actions/), el sistema sigue funcionando
+# sin curiosidades — no rompe vocabulario, cuento ni conversación.
+try:
+    from curiosidades_loader import (
+        obtener_curiosidad as _obtener_curiosidad,
+        curiosidades_disponibles as _curiosidades_disponibles,
+    )
+except Exception as _cur_err:
+    import logging as _log_cur
+    _log_cur.getLogger(__name__).warning(
+        "curiosidades_loader no disponible (%s). "
+        "El bot funcionará sin curiosidades culturales.", _cur_err
+    )
+    def _obtener_curiosidad(palabra_es, probabilidad=0.3, forzar=False):
+        return None
+    def _curiosidades_disponibles():
+        return False
+
+import random as _random
 
 
 
@@ -1206,44 +1242,200 @@ class ActionVerProgreso(Action):
         return []
 
 
+# ════════════════════════════════════════════════════════════════════
+# MÓDULO "CONVERSA CONMIGO" — versión naturalizada
+# ════════════════════════════════════════════════════════════════════
+# Mejoras frente a la versión inicial:
+#   • Plantillas múltiples por tipo de respuesta (selección aleatoria)
+#   • Quick replies dinámicos contextuales en cada turno
+#   • Memoria de última intención (slot ultima_intencion_conv) para
+#     evitar repetir el mismo formato cuando el usuario reitera el tema
+#   • Detección de despedidas (es y shp) para cerrar con respeto
+#   • Curiosidades culturales del PDF (~30% de las traducciones)
+#     compatibles con futura sustitución por RAG sobre chunks
+#   • Identidad explícita del bot: "Pishico"
+# ════════════════════════════════════════════════════════════════════
+
+# Palabras que indican despedida en español o shipibo
+_PALABRAS_DESPEDIDA = {
+    "chau", "chao", "adios", "adiós", "bye", "hasta luego", "hasta pronto",
+    "nos vemos", "me voy", "salir", "salgo",
+    "kabanon", "eara jopariai", "jopariai",
+}
+
+# Plantillas para responder traducciones del corpus (palabra→español está en
+# clave "es"). {es} y {shp} se rellenan con la palabra original y su equivalente.
+_TPL_TRAD_ES_A_SHP = [
+    "🌿 *{es}* en shipibo se dice *{shp}*.",
+    "En shipibo, *{es}* es *{shp}*. Buena para tener a mano.",
+    "*{es}* → *{shp}*. ¿Querés otra del mismo tipo?",
+    "Anotala: *{es}* se dice *{shp}* en shipibo.",
+]
+
+_TPL_TRAD_SHP_A_ES = [
+    "🔄 *{shp}* en shipibo significa *{es}* en español.",
+    "*{shp}* es *{es}*. Bien por reconocerla.",
+    "Conozco esa: *{shp}* quiere decir *{es}*.",
+    "*{shp}* = *{es}*. ¿Querés que te diga otra palabra?",
+]
+
+# Plantillas para frases conversacionales (del loader)
+_TPL_FRASE_SHP = [
+    "💬 *{shp}* en shipibo significa *{es}*.",
+    "Esa es una forma común en shipibo. *{shp}* es *{es}* en español.",
+    "*{shp}* se traduce como *{es}*. Buena frase para aprender.",
+]
+
+_TPL_FRASE_ES = [
+    "💬 En shipibo, *{es}* se dice *{shp}*.",
+    "*{es}* → *{shp}*. Te la podés guardar para más adelante.",
+    "Para decir *{es}* en shipibo usá *{shp}*.",
+]
+
+# Plantillas para cuando el usuario REPITE un saludo o frase ya respondida
+_TPL_REPETICION_SALUDO = [
+    "Veo que volvés a saludar 🌿. ¿Querés que te muestre otras formas de saludar, o probamos otra cosa?",
+    "Otro saludo, je. Si querés, te puedo mostrar despedidas o agradecimientos en shipibo.",
+    "¿Probamos algo distinto? Te puedo decir cómo despedirte o agradecer en shipibo.",
+]
+
+_TPL_REPETICION_TRAD = [
+    "Esa ya la vimos. ¿Querés que te diga otra palabra parecida?",
+    "Bien por practicarla. Si querés explorar más, te puedo dar otra de la misma categoría.",
+]
+
+# Despedidas que el bot envía
+_TPL_DESPEDIDA = [
+    "🌿 *Kabanon* (hasta luego). Volvé cuando quieras seguir aprendiendo shipibo.",
+    "¡Eara jopariai! Hasta la próxima.",
+    "Kabanon. Buen camino con el shipibo. 🌟",
+]
+
+# Plantillas de fallback (cuando no se reconoce nada)
+_TPL_FALLBACK = [
+    "🤔 Esa no la tengo todavía. Probá con un saludo o pedime traducir una palabra como *agua* o *jene*.",
+    "No reconozco eso. ¿Querés que te muestre un saludo, una palabra del corpus o algo de la cultura?",
+    "Esa frase no la conozco. Te puedo ayudar con traducciones, saludos o curiosidades culturales.",
+]
+
+# Bienvenidas: una corta para entradas repetidas, una más rica la primera vez
+_BIENVENIDA_PRIMERA = (
+    "¡Jawekeskarin! 🌿 Soy *Pishico*, tu compañero para aprender shipibo. "
+    "¿Por dónde querés empezar?"
+)
+_BIENVENIDA_REPETIDA = (
+    "Volviste a Conversar. ¿Qué te gustaría hacer ahora?"
+)
+
+
+def _es_despedida(texto: str) -> bool:
+    """Detecta si el usuario está despidiéndose (es o shp)."""
+    t = texto.lower().strip().rstrip(".!?¡¿")
+    if t in _PALABRAS_DESPEDIDA:
+        return True
+    # Inicio del texto con palabra de despedida (ej. "chau, hasta mañana")
+    primera = t.split()[0] if t.split() else ""
+    return primera in _PALABRAS_DESPEDIDA
+
+
+def _es_pregunta_cultural(texto: str) -> bool:
+    """Heurística para detectar consultas culturales."""
+    t = texto.lower().strip()
+    if "?" in t or "¿" in t:
+        return True
+    palabras_pregunta = {"qué", "que", "cómo", "como", "por", "dónde", "donde",
+                         "cuál", "cual", "explícame", "explicame", "contame", "cuéntame"}
+    primera = t.split()[0] if t.split() else ""
+    return primera in palabras_pregunta
+
+
+def _botones_default():
+    """Botones genéricos para fomentar conversación."""
+    return [
+        {"title": "Decime un saludo",  "payload": "Hola"},
+        {"title": "Traducime una palabra", "payload": "agua"},
+        {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+    ]
+
+
+def _botones_tras_traduccion(palabra_es: str, categoria: Optional[str] = None):
+    """Botones contextuales después de traducir una palabra del corpus."""
+    btns = []
+    if categoria:
+        btns.append({
+            "title": f"Otra de {categoria}",
+            "payload": f"otra palabra de {categoria}",
+        })
+    btns.append({"title": "Decime un saludo", "payload": "Hola"})
+    btns.append({"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"})
+    return btns
+
+
+def _botones_tras_saludo():
+    return [
+        {"title": "Otro saludo",     "payload": "Buenas tardes"},
+        {"title": "Una palabra",     "payload": "agua"},
+        {"title": "Cómo despedirme", "payload": "Hasta luego"},
+    ]
+
+
+def _botones_tras_despedida():
+    """Tras despedida no insistimos: solo un botón discreto para volver."""
+    return [
+        {"title": "Volver", "payload": "/conversar"},
+    ]
+
+
+def _palabra_random_de_categoria(categoria: str) -> Optional[Dict[str, Any]]:
+    """Devuelve una palabra al azar de la categoría dada usando el corpus."""
+    from corpus_loader import palabras_de
+    palabras = palabras_de(categoria)
+    if not palabras:
+        return None
+    return _random.choice(palabras)
+
+
+def _categoria_de_palabra(palabra_es: str) -> Optional[str]:
+    """Encuentra a qué categoría pertenece una palabra del corpus."""
+    from corpus_loader import VOCABULARIO
+    palabra_es = palabra_es.lower().strip()
+    for cat, palabras in VOCABULARIO.items():
+        for p in palabras:
+            if p["es"].lower() == palabra_es or p["shp"].lower() == palabra_es:
+                return cat
+    return None
+
+
 class ActionResponderConversacion(Action):
     """
-    Maneja el flujo de conversación libre (tercer modo del sidebar).
+    Maneja el modo conversación libre con respuestas naturalizadas.
 
-    El frontend envía cada mensaje del usuario como payload explícito:
-        /conversar{"texto_usuario": "<texto literal>"}
-
-    La acción procesa el texto en este orden de prioridad:
-      1. ¿Es una palabra del corpus (54 palabras)? → da la traducción.
-      2. ¿Es una frase del corpus conversacional? → responde con la
-         equivalencia en el idioma opuesto.
-      3. (RAG, pendiente) ¿Es pregunta cultural? → buscará en el PDF.
-      4. Fallback: sugiere ejemplos de lo que puede hacer.
+    Pipeline de detección (en orden de prioridad):
+      1. Despedida (chau / kabanon / etc.) → cerrar con saludo respetuoso
+      2. "Otra palabra de <categoría>" → dar palabra aleatoria de la categoría
+      3. Palabra del corpus (54 palabras) → traducir + (eventualmente) curiosidad
+      4. Frase del loader conversacional → responder con equivalencia
+      5. Pregunta con interrogante → respuesta del RAG (placeholder por ahora)
+      6. Fallback con plantilla aleatoria
     """
 
     def name(self) -> Text:
         return "action_responder_conversacion"
 
     def run(self, dispatcher, tracker, domain):
-        # El texto del usuario puede venir por tres caminos:
-        #   1) Slot texto_usuario (si Rasa lo seteo desde el payload)
-        #   2) Entidad texto_usuario en latest_message (formato /intent{"slot":"v"})
-        #   3) Parseo manual del JSON del payload (resiliencia)
-        import json
-        import re
+        import json, re as _re
 
+        # ── Recuperar texto del usuario (3 fuentes en cascada) ──────────────
         texto = (tracker.get_slot("texto_usuario") or "").strip()
-
         if not texto:
             for ent in (tracker.latest_message or {}).get("entities", []):
                 if ent.get("entity") == "texto_usuario":
                     texto = (ent.get("value") or "").strip()
                     if texto:
                         break
-
         if not texto:
             raw = (tracker.latest_message or {}).get("text", "") or ""
-            m = re.search(r"\{.*\}", raw)
+            m = _re.search(r"\{.*\}", raw)
             if m:
                 try:
                     data = json.loads(m.group(0))
@@ -1251,13 +1443,39 @@ class ActionResponderConversacion(Action):
                 except (json.JSONDecodeError, ValueError):
                     pass
 
-        # Si no hay texto utilizable, mostrar bienvenida (entrada al modo)
+        # Sin texto → bienvenida (entrada al modo)
         if not texto:
-            return self._enviar_bienvenida(dispatcher)
+            return self._bienvenida(dispatcher, tracker)
 
+        ultima = tracker.get_slot("ultima_intencion_conv") or ""
+
+        # ── 1. Despedida ────────────────────────────────────────────────────
+        if _es_despedida(texto):
+            mensaje = _random.choice(_TPL_DESPEDIDA)
+            dispatcher.utter_message(text=mensaje, buttons=_botones_tras_despedida())
+            return self._cerrar(mensaje, "despedida")
+
+        # ── 2. "Otra palabra de X" — pedido explícito de palabra aleatoria ──
+        m_cat = _re.search(
+            r"otra\s+palabra\s+(?:de\s+)?(naturaleza|animales|cuerpo|colores|objetos)",
+            texto.lower()
+        )
+        if m_cat:
+            categoria = m_cat.group(1)
+            palabra = _palabra_random_de_categoria(categoria)
+            if palabra:
+                mensaje = self._mensaje_traduccion_corpus(
+                    palabra["es"], palabra["shp"], es_origen_shipibo=False,
+                    incluir_curiosidad=True,
+                )
+                dispatcher.utter_message(
+                    text=mensaje,
+                    buttons=_botones_tras_traduccion(palabra["es"], categoria),
+                )
+                return self._cerrar(mensaje, "traduccion")
+
+        # ── 3. Palabra del corpus (54 palabras) ─────────────────────────────
         texto_norm = normalizar(texto)
-
-        # ── Prioridad 1: palabra del corpus de 54 palabras ─────────────
         traduccion = _traducir_corpus(texto_norm)
         if traduccion and len(texto_norm.split()) <= 2:
             es_shipibo = (
@@ -1265,106 +1483,112 @@ class ActionResponderConversacion(Action):
                 and DICCIONARIO[texto_norm] != texto_norm
                 and traduccion != texto_norm
             )
+            # Detectar repetición del mismo tipo de consulta
+            if ultima == "traduccion":
+                # No es problema, pero variamos el tono
+                pass
             if es_shipibo:
-                # texto está en shipibo, traduccion está en español
-                mensaje = (
-                    f"🔄 **{texto}** en shipibo significa **{traduccion}** "
-                    f"en español. 🌿"
+                palabra_es = traduccion
+                palabra_shp = texto_norm
+                mensaje = self._mensaje_traduccion_corpus(
+                    palabra_es, palabra_shp, es_origen_shipibo=True,
+                    incluir_curiosidad=True,
                 )
             else:
-                # texto está en español, traduccion está en shipibo
-                mensaje = (
-                    f"🔄 **{texto}** en español se dice **{traduccion}** "
-                    f"en shipibo. 🌿"
+                palabra_es = texto_norm
+                palabra_shp = traduccion
+                mensaje = self._mensaje_traduccion_corpus(
+                    palabra_es, palabra_shp, es_origen_shipibo=False,
+                    incluir_curiosidad=True,
                 )
-            dispatcher.utter_message(text=mensaje)
-            return [
-                SlotSet("flujo_actual", "conversar"),
-                SlotSet("texto_usuario", None),
-                SlotSet("ultima_respuesta_bot", mensaje),
-            ]
+            categoria = _categoria_de_palabra(palabra_es)
+            dispatcher.utter_message(
+                text=mensaje,
+                buttons=_botones_tras_traduccion(palabra_es, categoria),
+            )
+            return self._cerrar(mensaje, "traduccion")
 
-        # ── Prioridad 2: frase del corpus conversacional ───────────────
+        # ── 4. Frase del corpus conversacional ──────────────────────────────
         if _frases_conv_disponibles():
             match = _buscar_frase_conv(texto)
             if match:
+                # Si el usuario ya hizo un saludo y vuelve a saludar → variar
+                es_saludo = match["categoria"] in ("saludo", "despedida")
+                if es_saludo and ultima == "frase":
+                    mensaje = _random.choice(_TPL_REPETICION_SALUDO)
+                    dispatcher.utter_message(text=mensaje, buttons=_botones_tras_saludo())
+                    return self._cerrar(mensaje, "frase")
+
                 if match["idioma_detectado"] == "shp":
-                    mensaje = (
-                        f"💬 Reconozco esa frase. **{match['shp']}** en "
-                        f"shipibo significa **{match['es']}** en español.\n\n"
-                        f"_(categoría: {match['categoria']})_"
-                    )
+                    tpl = _random.choice(_TPL_FRASE_SHP)
                 else:
-                    mensaje = (
-                        f"💬 En shipibo, **{match['es']}** se dice "
-                        f"**{match['shp']}**.\n\n"
-                        f"_(categoría: {match['categoria']})_"
-                    )
-                dispatcher.utter_message(text=mensaje)
-                return [
-                    SlotSet("flujo_actual", "conversar"),
-                    SlotSet("texto_usuario", None),
-                    SlotSet("ultima_respuesta_bot", mensaje),
-                ]
+                    tpl = _random.choice(_TPL_FRASE_ES)
+                # Limpiar puntuación terminal del Excel ("Hola." → "Hola")
+                # para que las plantillas no muestren "Para decir 'Hola.' usá..."
+                es_limpio  = match["es"].rstrip(".!?¡¿")
+                shp_limpio = match["shp"].rstrip(".!?¡¿")
+                mensaje = tpl.format(es=es_limpio, shp=shp_limpio)
 
-        # ── Prioridad 3: consulta cultural (RAG pendiente) ─────────────
-        es_pregunta = (
-            "?" in texto
-            or texto.lower().split()[0:1] and texto.lower().split()[0] in
-                {"qué", "que", "cómo", "como", "por", "dónde", "donde", "cuál", "cual"}
-        )
-        if es_pregunta:
+                botones = _botones_tras_saludo() if es_saludo else _botones_default()
+                dispatcher.utter_message(text=mensaje, buttons=botones)
+                return self._cerrar(mensaje, "frase")
+
+        # ── 5. Pregunta cultural (RAG pendiente, placeholder elegante) ──────
+        if _es_pregunta_cultural(texto):
             mensaje = (
-                "📚 Esa parece una pregunta sobre cultura shipibo. "
-                "Pronto podré responder buscando en documentos culturales. "
-                "Por ahora, probá pidiéndome la traducción de una palabra "
-                "o decime un saludo."
+                "📚 Esa es una pregunta sobre cultura shipibo. Pronto voy a poder "
+                "buscar respuestas en documentos culturales. Mientras tanto, "
+                "te puedo enseñar palabras o saludos."
             )
-            dispatcher.utter_message(text=mensaje)
-            return [
-                SlotSet("flujo_actual", "conversar"),
-                SlotSet("texto_usuario", None),
-                SlotSet("ultima_respuesta_bot", mensaje),
-            ]
+            dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+            return self._cerrar(mensaje, "pregunta_cultural")
 
-        # ── Fallback: sugerencias ──────────────────────────────────────
-        return self._enviar_fallback(dispatcher, texto)
+        # ── 6. Fallback con variabilidad ────────────────────────────────────
+        mensaje = _random.choice(_TPL_FALLBACK)
+        dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+        return self._cerrar(mensaje, "fallback")
 
-    def _enviar_bienvenida(self, dispatcher) -> List[EventType]:
-        ejemplos = _frases_ejemplo(4) if _frases_conv_disponibles() else []
-        if ejemplos:
-            sugerencias = "\n".join(
-                f"• Decime **'{f['es']}'** o **'{f['shp']}'**"
-                for f in ejemplos[:3]
-            )
+    # ── Helpers internos ──────────────────────────────────────────────────
+
+    def _mensaje_traduccion_corpus(
+        self,
+        palabra_es: str,
+        palabra_shp: str,
+        es_origen_shipibo: bool,
+        incluir_curiosidad: bool = True,
+    ) -> str:
+        """Construye el mensaje de traducción con curiosidad opcional."""
+        if es_origen_shipibo:
+            tpl = _random.choice(_TPL_TRAD_SHP_A_ES)
         else:
-            sugerencias = "• Decime **'Hola'**\n• Pedime traducir una palabra"
+            tpl = _random.choice(_TPL_TRAD_ES_A_SHP)
+        mensaje = tpl.format(es=palabra_es, shp=palabra_shp)
 
-        mensaje = (
-            "💬 ¡Bienvenido al modo conversación!\n\n"
-            "Acá podés hablar conmigo en español o en shipibo. "
-            "Algunas cosas que podés probar:\n\n"
-            f"{sugerencias}\n"
-            "• Preguntame **'¿qué significa jene?'**\n"
-            "• Consultame sobre la cultura shipibo (próximamente)"
-        )
-        dispatcher.utter_message(text=mensaje)
+        # Curiosidad cultural (~30% de las veces, si hay datos)
+        if incluir_curiosidad and _curiosidades_disponibles():
+            cur = _obtener_curiosidad(palabra_es)
+            if cur:
+                mensaje += f"\n\n💡 _{cur['texto']}_"
+        return mensaje
+
+    def _bienvenida(self, dispatcher, tracker) -> List[EventType]:
+        """Mensaje al entrar al modo conversación."""
+        # Si ya hubo una bienvenida en esta sesión, usar la versión corta
+        ya_estuvo = tracker.get_slot("ultima_intencion_conv") is not None
+        mensaje = _BIENVENIDA_REPETIDA if ya_estuvo else _BIENVENIDA_PRIMERA
+        dispatcher.utter_message(text=mensaje, buttons=_botones_default())
         return [
             SlotSet("flujo_actual", "conversar"),
             SlotSet("texto_usuario", None),
+            SlotSet("ultima_intencion_conv", "bienvenida"),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
-    def _enviar_fallback(self, dispatcher, texto: str) -> List[EventType]:
-        mensaje = (
-            f"🤔 No reconozco **\"{texto[:60]}\"** todavía. Probá:\n\n"
-            "• Un saludo como **'Hola'** o **'Jawekeskarin'**\n"
-            "• Una palabra del corpus, como **'agua'** o **'jene'**\n"
-            "• Una pregunta sobre cultura shipibo (próximamente)"
-        )
-        dispatcher.utter_message(text=mensaje)
+    def _cerrar(self, mensaje: str, tipo_intencion: str) -> List[EventType]:
+        """Eventos comunes al cerrar cualquier respuesta del modo conversación."""
         return [
             SlotSet("flujo_actual", "conversar"),
             SlotSet("texto_usuario", None),
+            SlotSet("ultima_intencion_conv", tipo_intencion),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
