@@ -585,19 +585,33 @@ class ActionSiguientePalabra(Action):
         ]
 
 
+# Capa 1: número máximo de intentos antes de marcar la palabra como
+# "no logra" (nivel 0). Definido en colaboración con la experta pedagógica.
+MAX_INTENTOS_VOCAB = 3
+
+
 class ActionEvaluarRespuestaVocab(Action):
+    """
+    Evalúa la respuesta del usuario aplicando la curva de aprendizaje de la
+    matriz pedagógica validada por la experta en educación:
+
+      • Nivel 2: logra al primer intento.
+      • Nivel 1: logra después de 2 o 3 intentos.
+      • Nivel 0: no logra (agota los 3 intentos).
+
+    Respuesta parcial (similitud alta pero no exacta) NO cuenta como logro:
+    se le pide al usuario corregir y se consume un intento.
+    """
+
     def name(self) -> Text:
         return "action_evaluar_respuesta_vocab"
 
     def run(self, dispatcher, tracker, domain):
-        # Camino 2: la respuesta llega desde el slot capturado por from_text.
-        # Fallback al último texto para conservar compatibilidad con pruebas antiguas.
         texto = tracker.get_slot("respuesta_actividad")
         if not texto:
             texto = (tracker.latest_message or {}).get("text", "")
 
-        # Flujo básico: si el usuario pausa dentro del form, se cierra
-        # la actividad y se limpia el contexto para evitar predicciones cruzadas.
+        # Pausar limpia el contexto (igual que antes)
         if texto == "__pausa__":
             mensaje = (
                 "Actividad pausada. Para iniciar de nuevo, escribe "
@@ -615,85 +629,92 @@ class ActionEvaluarRespuestaVocab(Action):
 
         categoria = tracker.get_slot("categoria_actual") or "naturaleza"
         palabra_es = tracker.get_slot("palabra_actual") or ""
-        intentos = int(tracker.get_slot("intentos_palabra") or 0)
+        intentos_previos = int(tracker.get_slot("intentos_palabra") or 0)
+        intento_actual = intentos_previos + 1
         modo = _get_modo(tracker)
 
         info = encontrar_palabra(categoria, palabra_es)
         esperada, variantes = _esperada_y_variantes(info, modo)
-
-        # En modo shp_a_es aceptamos frases naturales: "el agua", "es agua".
-        texto_eval = _normalizar_respuesta_es(texto) if modo == MODO_SHP_A_ES else texto
-        resultado = evaluar_respuesta(texto_eval, esperada, variantes)
-
-        # Para los mensajes de feedback necesitamos las dos formas, sin
-        # importar el modo: se muestra el par completo es↔shp.
         forma_es = info.get("es", "")
         forma_shp = info.get("shp", "")
 
-        # En la DB siempre guardamos el par canónico es/shp. El campo
-        # `resultado` ya captura correcto/parcial/incorrecto; el modo
-        # no se almacena (decisión: el dominio cuenta igual en ambas
-        # direcciones; agregar columna `modo` queda como deuda v2 si
-        # se quiere análisis por dirección).
+        texto_eval = _normalizar_respuesta_es(texto) if modo == MODO_SHP_A_ES else texto
+        resultado = evaluar_respuesta(texto_eval, esperada, variantes)
 
         eventos_base = [SlotSet("respuesta_actividad", None)]
 
+        # ── RESPUESTA CORRECTA: registrar nivel según número de intentos ────
         if resultado == "correcto":
-            registrar_intento(
-                tracker.sender_id, categoria, palabra_es, forma_shp, "correcto", intentos + 1
-            )
-            mensaje = (
-                f"¡Excelente! ✅ '**{forma_es}**' en shipibo es '**{forma_shp}**'.\n"
-                f"¿Seguimos?"
-            )
-            dispatcher.utter_message(text=mensaje, buttons=[
-                {"title": "Siguiente palabra", "payload": "continuar"},
-                {"title": "Cambiar modo", "payload": "/seleccionar_modo"},
-                {"title": "Pausar", "payload": "pausa"},
-            ])
-            return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
+            if intento_actual == 1:
+                nivel = 2  # Nivel alto: lo logra a la primera
+                mensaje = (
+                    f"¡Excelente! 🎉 Lo lograste al primer intento.\n"
+                    f"'**{forma_es}**' en shipibo es '**{forma_shp}**'."
+                )
+            else:
+                nivel = 1  # Nivel medio: lo logra con esfuerzo
+                mensaje = (
+                    f"¡Muy bien! 👏 Lo lograste con esfuerzo "
+                    f"(intento {intento_actual} de {MAX_INTENTOS_VOCAB}).\n"
+                    f"'**{forma_es}**' en shipibo es '**{forma_shp}**'."
+                )
 
-        if resultado == "parcial":
             registrar_intento(
-                tracker.sender_id, categoria, palabra_es, forma_shp, "parcial", intentos + 1
+                tracker.sender_id, categoria, palabra_es, forma_shp,
+                "correcto", intento_actual,
+                nivel=nivel, criterios="uso,ortografia",
             )
-            mensaje = (
-                f"Casi. 🤏 Te acercaste, pero la respuesta exacta es '**{esperada}**'.\n"
-                f"¿Seguimos?"
-            )
-            dispatcher.utter_message(text=mensaje, buttons=[
-                {"title": "Siguiente palabra", "payload": "continuar"},
-            ])
-            return eventos_base + [SlotSet("ultima_respuesta_bot", mensaje)]
 
-        # Incorrecto: en el primer error se da pista y se reactiva el form para
-        # capturar el siguiente intento con from_text. En el segundo error,
-        # se revela la respuesta y se espera confirmación/continuar.
-        intentos += 1
-        if intentos < 2:
-            pista = _pista_segun_modo(info, modo)
+            dispatcher.utter_message(text=mensaje + "\n¿Seguimos?", buttons=[
+                {"title": "Siguiente palabra", "payload": "continuar"},
+                {"title": "Cambiar modo",      "payload": "/seleccionar_modo"},
+                {"title": "Pausar",            "payload": "pausa"},
+            ])
+            return eventos_base + [
+                SlotSet("intentos_palabra", 0),  # reset para la siguiente palabra
+                SlotSet("ultima_respuesta_bot", mensaje),
+            ]
+
+        # ── NO CORRECTA (parcial o incorrecta): aplicar ciclo de reintentos ──
+        if intento_actual < MAX_INTENTOS_VOCAB:
+            # Aún quedan intentos. Damos feedback y volvemos a pedir la respuesta.
+            if resultado == "parcial":
+                feedback = "Casi. 🤏 Fijate en la ortografía y probá de nuevo."
+            else:
+                pista = _pista_segun_modo(info, modo)
+                feedback = f"No es esa. 💡 Pista: {pista}"
+
             pregunta = _formular_pregunta(info, modo)
-            mensaje = f"No es esa. 💡 Pista: {pista}\n{pregunta}"
+            intentos_restantes = MAX_INTENTOS_VOCAB - intento_actual
+            mensaje = (
+                f"{feedback}\n\n"
+                f"_(Te quedan {intentos_restantes} "
+                f"{'intento' if intentos_restantes == 1 else 'intentos'})_\n\n"
+                f"{pregunta}"
+            )
             dispatcher.utter_message(text=mensaje)
             return eventos_base + [
-                SlotSet("intentos_palabra", intentos),
+                SlotSet("intentos_palabra", intento_actual),
                 SlotSet("ultima_respuesta_bot", mensaje),
                 FollowupAction("actividad_form"),
             ]
 
+        # ── AGOTÓ INTENTOS: revelar respuesta y registrar nivel 0 ───────────
         registrar_intento(
-            tracker.sender_id, categoria, palabra_es, forma_shp, "incorrecto", intentos + 1
+            tracker.sender_id, categoria, palabra_es, forma_shp,
+            "incorrecto", intento_actual,
+            nivel=0, criterios="uso,ortografia",
         )
         mensaje = (
-            f"No te preocupes. La respuesta correcta es '**{esperada}**'. 🌱\n"
-            f"({forma_es} ↔ {forma_shp})\n"
-            f"¿Pasamos a otra palabra?"
+            f"La respuesta era '**{esperada}**'. 🌱\n"
+            f"({forma_es} ↔ {forma_shp})\n\n"
+            f"No te preocupes, así se aprende. ¿Pasamos a otra palabra?"
         )
         dispatcher.utter_message(text=mensaje, buttons=[
             {"title": "Siguiente palabra", "payload": "continuar"},
         ])
         return eventos_base + [
-            SlotSet("intentos_palabra", intentos),
+            SlotSet("intentos_palabra", 0),  # reset
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
@@ -852,6 +873,7 @@ class ActionSiguienteFragmento(Action):
 
         eventos = [
             SlotSet("fragmento_actual", float(idx)),
+            SlotSet("intentos_palabra", 0),  # reset al avanzar de fragmento
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
         if frag.get("pregunta"):
@@ -860,19 +882,37 @@ class ActionSiguienteFragmento(Action):
         return eventos
 
 
+# Capa 1: número máximo de intentos en el cuento (misma rúbrica que vocab)
+MAX_INTENTOS_CUENTO = 3
+
+
 class ActionEvaluarRespuestaCuento(Action):
+    """
+    Evalúa la respuesta del usuario a una pregunta del cuento aplicando
+    la curva de aprendizaje pedagógica:
+
+      • Nivel 2: comprende y responde correctamente al primer intento.
+      • Nivel 1: comprende y responde correctamente después de varios intentos.
+      • Nivel 0: no comprende ni responde correctamente (agota los intentos).
+
+    Respuesta parcial NO cuenta como logro; se solicita corregir y se
+    consume un intento. El contador de intentos se reusa el mismo slot
+    intentos_palabra (en cuento representa intentos por fragmento).
+    """
+
     def name(self) -> Text:
         return "action_evaluar_respuesta_cuento"
 
     def run(self, dispatcher, tracker, domain):
-        # El texto viene del slot respuesta_actividad (capturado por el form)
         texto = (
             tracker.get_slot("respuesta_actividad")
             or (tracker.latest_message or {}).get("text", "")
         )
-        # Limpiar centinela si vino de pausa
+
         if texto == "__pausa__":
-            dispatcher.utter_message(text="Pausamos el cuento. Cuando quieras seguir, escribe **continuar**.")
+            dispatcher.utter_message(
+                text="Pausamos el cuento. Cuando quieras seguir, escribe **continuar**."
+            )
             return [SlotSet("respuesta_actividad", None)]
 
         idx = int(tracker.get_slot("fragmento_actual") or 0)
@@ -887,21 +927,76 @@ class ActionEvaluarRespuestaCuento(Action):
             return [SlotSet("respuesta_actividad", None)]
 
         cuento_id = _cuento_id_activo(tracker)
+        intentos_previos = int(tracker.get_slot("intentos_palabra") or 0)
+        intento_actual = intentos_previos + 1
         resultado = evaluar_respuesta(texto, esperada)
-        registrar_fragmento_cuento(
-            tracker.sender_id, cuento_id, idx, resultado == "correcto"
-        )
+        eventos_base = [SlotSet("respuesta_actividad", None)]
+
+        # ── RESPUESTA CORRECTA: registrar nivel según intento ───────────────
         if resultado == "correcto":
-            mensaje = f"¡Muy bien! ✅ '{esperada}' es la palabra correcta."
-        elif resultado == "parcial":
-            mensaje = f"Te acercaste. 🤏 La respuesta es '{esperada}'."
-        else:
-            mensaje = f"No exactamente. La palabra era '{esperada}'. 🌱"
+            if intento_actual == 1:
+                nivel = 2
+                mensaje = (
+                    f"¡Muy bien! 🎉 Lo entendiste al primer intento. "
+                    f"'**{esperada}**' es la palabra correcta."
+                )
+            else:
+                nivel = 1
+                mensaje = (
+                    f"¡Bien hecho! 👏 Lo lograste con esfuerzo "
+                    f"(intento {intento_actual} de {MAX_INTENTOS_CUENTO}). "
+                    f"'**{esperada}**' es la palabra correcta."
+                )
+
+            registrar_fragmento_cuento(
+                tracker.sender_id, cuento_id, idx, True,
+                nivel=nivel, criterios="uso,comprension",
+            )
+            dispatcher.utter_message(text=mensaje, buttons=[
+                {"title": "Continuar historia", "payload": "/continuar"},
+            ])
+            return eventos_base + [
+                SlotSet("intentos_palabra", 0),  # reset para próximo fragmento
+                SlotSet("ultima_respuesta_bot", mensaje),
+            ]
+
+        # ── NO CORRECTA: aplicar ciclo de reintentos dentro del cuento ──────
+        if intento_actual < MAX_INTENTOS_CUENTO:
+            if resultado == "parcial":
+                feedback = "Te acercaste. 🤏 Fijate en la ortografía y probá de nuevo."
+            else:
+                ayuda_msg = frag.get("ayuda") or "Lee el fragmento con calma y piensa en el contexto."
+                feedback = f"No es esa. 💡 Pista: {ayuda_msg}"
+
+            pregunta = frag.get("pregunta") or "Escribe tu respuesta."
+            intentos_restantes = MAX_INTENTOS_CUENTO - intento_actual
+            mensaje = (
+                f"{feedback}\n\n"
+                f"_(Te quedan {intentos_restantes} "
+                f"{'intento' if intentos_restantes == 1 else 'intentos'})_\n\n"
+                f"{pregunta}"
+            )
+            dispatcher.utter_message(text=mensaje)
+            return eventos_base + [
+                SlotSet("intentos_palabra", intento_actual),
+                SlotSet("ultima_respuesta_bot", mensaje),
+                FollowupAction("actividad_form"),
+            ]
+
+        # ── AGOTÓ INTENTOS: revelar y registrar nivel 0 ─────────────────────
+        registrar_fragmento_cuento(
+            tracker.sender_id, cuento_id, idx, False,
+            nivel=0, criterios="uso,comprension",
+        )
+        mensaje = (
+            f"La palabra que buscábamos era '**{esperada}**'. 🌱\n\n"
+            f"No te preocupes, sigamos con la historia para que aprendas más."
+        )
         dispatcher.utter_message(text=mensaje, buttons=[
             {"title": "Continuar historia", "payload": "/continuar"},
         ])
-        return [
-            SlotSet("respuesta_actividad", None),
+        return eventos_base + [
+            SlotSet("intentos_palabra", 0),  # reset
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 

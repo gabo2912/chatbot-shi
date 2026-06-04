@@ -75,7 +75,13 @@ def _db_path():
 
 
 def _leer_progreso(sender_id: str):
-    """Lee la DB y devuelve dict con categorías + cuentos."""
+    """
+    Lee la DB y devuelve progreso por categoría y por cuento, incluyendo
+    desglose por nivel pedagógico (Capa 3 de la matriz):
+      • nivel 2: lo logra al primer intento
+      • nivel 1: lo logra con esfuerzo (varios intentos)
+      • nivel 0: no lo logra (agotó intentos)
+    """
     db = _db_path()
     if not db:
         return {"error": "DB no encontrada", "categorias": [], "cuentos": []}
@@ -83,7 +89,7 @@ def _leer_progreso(sender_id: str):
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     try:
-        # Categorías
+        # ── Resumen base por categoría ───────────────────────────────────
         cats_data = conn.execute("""
             SELECT
                 categoria,
@@ -94,10 +100,29 @@ def _leer_progreso(sender_id: str):
             GROUP BY categoria
         """, (sender_id,)).fetchall()
 
-        visto = {r["categoria"]: r for r in cats_data}
+        # ── Desglose por nivel (toma el MEJOR nivel alcanzado por palabra) ─
+        niveles_data = conn.execute("""
+            SELECT
+                categoria,
+                SUM(CASE WHEN max_nivel=2 THEN 1 ELSE 0 END) AS nivel_2,
+                SUM(CASE WHEN max_nivel=1 THEN 1 ELSE 0 END) AS nivel_1,
+                SUM(CASE WHEN max_nivel=0 THEN 1 ELSE 0 END) AS nivel_0
+            FROM (
+                SELECT categoria, palabra_es, MAX(nivel) AS max_nivel
+                FROM progreso_vocabulario
+                WHERE sender_id = ?
+                GROUP BY categoria, palabra_es
+            )
+            GROUP BY categoria
+        """, (sender_id,)).fetchall()
+
+        visto    = {r["categoria"]: r for r in cats_data}
+        niveles  = {r["categoria"]: r for r in niveles_data}
+
         categorias = []
         for cat in ["naturaleza", "animales", "cuerpo", "colores", "objetos"]:
             r = visto.get(cat)
+            n = niveles.get(cat)
             dom = r["dominadas"] if r else 0
             total = TOTAL_PALABRAS.get(cat, 0)
             categorias.append({
@@ -106,14 +131,49 @@ def _leer_progreso(sender_id: str):
                 "dominadas":  dom,
                 "total":      total,
                 "porcentaje": round(dom / total * 100) if total else 0,
+                "niveles": {
+                    "2": (n["nivel_2"] if n else 0) or 0,
+                    "1": (n["nivel_1"] if n else 0) or 0,
+                    "0": (n["nivel_0"] if n else 0) or 0,
+                },
             })
 
-        # Cuentos
+        # ── Resumen base por cuento ──────────────────────────────────────
         cuentos_data = conn.execute("""
             SELECT cuento_id, COUNT(DISTINCT fragmento) AS completados
             FROM progreso_cuento WHERE sender_id = ? GROUP BY cuento_id
         """, (sender_id,)).fetchall()
-        cuentos = [dict(r) for r in cuentos_data]
+
+        # ── Desglose por nivel para cuentos ──────────────────────────────
+        cuento_niveles = conn.execute("""
+            SELECT
+                cuento_id,
+                SUM(CASE WHEN max_nivel=2 THEN 1 ELSE 0 END) AS nivel_2,
+                SUM(CASE WHEN max_nivel=1 THEN 1 ELSE 0 END) AS nivel_1,
+                SUM(CASE WHEN max_nivel=0 THEN 1 ELSE 0 END) AS nivel_0
+            FROM (
+                SELECT cuento_id, fragmento, MAX(nivel) AS max_nivel
+                FROM progreso_cuento
+                WHERE sender_id = ?
+                GROUP BY cuento_id, fragmento
+            )
+            GROUP BY cuento_id
+        """, (sender_id,)).fetchall()
+        nivc = {r["cuento_id"]: r for r in cuento_niveles}
+
+        cuentos = []
+        for r in cuentos_data:
+            cid = r["cuento_id"]
+            n = nivc.get(cid)
+            cuentos.append({
+                "cuento_id":   cid,
+                "completados": r["completados"],
+                "niveles": {
+                    "2": (n["nivel_2"] if n else 0) or 0,
+                    "1": (n["nivel_1"] if n else 0) or 0,
+                    "0": (n["nivel_0"] if n else 0) or 0,
+                },
+            })
 
         return {"categorias": categorias, "cuentos": cuentos}
     finally:
