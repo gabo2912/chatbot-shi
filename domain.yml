@@ -54,6 +54,7 @@ slots:
       - cuerpo
       - colores
       - objetos
+      - números
     influence_conversation: false
     mappings:
       - type: from_entity

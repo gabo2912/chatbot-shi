@@ -59,12 +59,73 @@ CUENTO_META = {
     },
 }
 
-TOTAL_PALABRAS = {
-    "naturaleza": 11, "animales": 13, "cuerpo": 12, "colores": 9, "objetos": 9
-}
+# Emojis por categoría — sumar entradas al añadir categorías nuevas
 EMOJI_CAT = {
-    "naturaleza": "🌿", "animales": "🦜", "cuerpo": "🫀", "colores": "🎨", "objetos": "🏺"
+    "naturaleza": "🌿", "animales": "🦜", "cuerpo": "🫀",
+    "colores": "🎨", "objetos": "🏺", "números": "🔢",
 }
+
+# Mapeo prefijo → categoría (debe estar sincronizado con corpus_loader.py)
+_CATEGORIA_MAP = {
+    "nat": "naturaleza", "ani": "animales", "cuer": "cuerpo",
+    "col": "colores",    "obj": "objetos", "num": "números",
+}
+
+# Marcadores que indican ausencia de equivalente shipibo (palabras filtradas)
+_MARCADORES_VACIO = {"no hay", "no_hay", "n/a", "-", ""}
+
+# Localizar palabras.xlsx (mismas ubicaciones candidatas que cuentos.xlsx)
+PALABRAS_XLSX_CANDIDATES = [
+    HERE / "actions" / "corpus" / "palabras.xlsx",
+    HERE / "corpus" / "palabras.xlsx",
+    HERE.parent / "actions" / "corpus" / "palabras.xlsx",
+]
+
+
+def _palabras_xlsx_path():
+    for c in PALABRAS_XLSX_CANDIDATES:
+        if c.exists():
+            return c
+    return None
+
+
+def _calcular_total_palabras():
+    """
+    Lee palabras.xlsx y cuenta palabras válidas por categoría.
+    Reemplaza la constante hardcoded para que reflejar el corpus real.
+    Si el Excel no se encuentra, usa fallback estático.
+    """
+    fallback = {
+        "naturaleza": 11, "animales": 13, "cuerpo": 12,
+        "colores": 6, "objetos": 9, "números": 10,
+    }
+    path = _palabras_xlsx_path()
+    if not path:
+        return fallback
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(str(path), read_only=True, data_only=True)
+        ws = wb.active
+        conteo = {cat: 0 for cat in _CATEGORIA_MAP.values()}
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            id_ = str(row[0]).strip() if row and row[0] else ""
+            if not id_:
+                continue
+            shp = str(row[2]).strip().lower() if len(row) > 2 and row[2] else ""
+            if shp in _MARCADORES_VACIO:
+                continue  # filtrar "no hay"
+            prefix = id_.split("_", 1)[0] if "_" in id_ else ""
+            cat = _CATEGORIA_MAP.get(prefix)
+            if cat:
+                conteo[cat] += 1
+        wb.close()
+        return {k: v for k, v in conteo.items() if v > 0}
+    except Exception:
+        return fallback
+
+
+# Total dinámico computado al iniciar el servidor
+TOTAL_PALABRAS = _calcular_total_palabras()
 
 
 def _db_path():
@@ -120,7 +181,7 @@ def _leer_progreso(sender_id: str):
         niveles  = {r["categoria"]: r for r in niveles_data}
 
         categorias = []
-        for cat in ["naturaleza", "animales", "cuerpo", "colores", "objetos"]:
+        for cat in TOTAL_PALABRAS.keys():
             r = visto.get(cat)
             n = niveles.get(cat)
             dom = r["dominadas"] if r else 0

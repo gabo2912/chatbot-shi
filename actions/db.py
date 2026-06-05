@@ -20,23 +20,32 @@ logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "progress.db")
 
-# Emojis por categoría para el resumen de progreso
+# Emojis por categoría para el resumen de progreso.
+# Sumar entradas aquí cuando se agregue una categoría nueva al corpus.
 EMOJI_CAT = {
     "naturaleza": "🌿",
     "animales":   "🦜",
     "cuerpo":     "🫀",
     "colores":    "🎨",
     "objetos":    "🏺",
+    "números":    "🔢",
 }
 
-# Total de palabras por categoría (según corpus validado)
-TOTAL_PALABRAS = {
-    "naturaleza": 11,
-    "animales":   13,
-    "cuerpo":     12,
-    "colores":     9,
-    "objetos":     9,
-}
+# Total de palabras por categoría — DINÁMICO desde corpus_loader.
+# Antes era una constante hardcoded que se desfasaba al agregar/quitar palabras.
+# Ahora se computa al cargar el módulo desde el Excel real, evitando datos viejos.
+try:
+    from corpus_loader import total_por_categoria as _total_por_categoria
+    TOTAL_PALABRAS = _total_por_categoria()
+except Exception as _e:
+    logger.warning(
+        "db.py: no se pudo cargar total_por_categoria desde corpus_loader (%s). "
+        "Usando valores fallback estáticos.", _e
+    )
+    TOTAL_PALABRAS = {
+        "naturaleza": 11, "animales": 13, "cuerpo": 12,
+        "colores": 6, "objetos": 9, "números": 10,
+    }
 
 
 def _conn() -> sqlite3.Connection:
@@ -264,7 +273,8 @@ def get_resumen_categorias(sender_id: str) -> List[Dict[str, Any]]:
         visto = {r["categoria"]: r for r in rows}
         niveles = {r["categoria"]: r for r in niveles_rows}
 
-        for cat in ["naturaleza", "animales", "cuerpo", "colores", "objetos"]:
+        # Iteramos sobre las categorías reales del corpus (incluyendo nuevas como "números")
+        for cat in TOTAL_PALABRAS.keys():
             r = visto.get(cat)
             n = niveles.get(cat)
             dominadas = r["dominadas"] if r else 0

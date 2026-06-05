@@ -168,7 +168,7 @@ nlu:
     - quiero aprender vocabulario
     - quiero aprender palabras
     - enséñame una palabra
-    - enseñame una palabra
+    - enséñame una palabra
     - quiero practicar vocabulario
     - aprender palabras en shipibo
     - quiero ver palabras nuevas
@@ -198,6 +198,14 @@ nlu:
     - exploremos palabras nuevas
     - probemos con vocabulario del cuerpo
     - quiero ver la categoría animales
+    - quiero aprender los números
+    - enséñame los números
+    - vamos con la categoría números
+    - quiero la categoría números
+    - practiquemos los números
+    - muéstrame palabras de números
+    - quiero ver números
+    - probemos con números
 
 - intent: iniciar_cuento
   examples: |
@@ -230,19 +238,19 @@ nlu:
 #
 # COMPLEMENTO REQUERIDO (fuera de este archivo): durante una actividad activa,
 # mapear el slot de respuesta con `from_text` en el form, para que una respuesta
-# de UNA palabra (p. ej. "jene") no dependa de la clasificación de intent.
+# de UNA palabra (p. ej. "onpax") no dependa de la clasificación de intent.
 # ───────────────────────────────────────────────────────────────────────────
 - intent: responder_actividad
   examples: |
     - sí conozco la palabra
     - creo que es agua
     - es el agua
-    - es jene
-    - mi respuesta es jene
+    - es onpax
+    - mi respuesta es onpax
     - pienso que es pez
     - probablemente sea casa
     - es mano en shipibo
-    - la respuesta es jene
+    - la respuesta es onpax
     # --- v3: patrones de respuesta embebida (estructura "respuesta dentro de frase")
     - creo que la respuesta es agua
     - pienso que la respuesta es el sol
@@ -266,7 +274,7 @@ nlu:
     - pongo la opción b
     - respondo con árbol
     - creo que es la luna
-    - estoy seguro de que es jene
+    - estoy seguro de que es onpax
     - respondo que es agua
     - para mí es el sol
     - seguramente es la casa
@@ -288,7 +296,7 @@ nlu:
     - quiero traducir
     - dime cómo se dice
     - qué significa esta palabra
-    - qué significa jene
+    - qué significa onpax
     - cómo se dice árbol
     - traduce
     - cómo se dice esto en shipibo
@@ -534,9 +542,6 @@ nlu:
     - rojo
     - verde
     - amarillo
-    - gris
-    - marrón
-    - rosado
     - canoa
     - casa
     - olla
@@ -546,7 +551,7 @@ nlu:
     - plato
     - libro
     - escuela
-    - jene
+    - onpax
     - bari
     - jihui
     - oshi
@@ -557,13 +562,13 @@ nlu:
     - chi
     - mai
     - yamé
-    - waka
+    - yapa
     - shahue
     - ochiti
     - hiso
     - isa
     - rono
-    - ino
+    - kape
     - cape
     - ana
     - atapa
@@ -585,7 +590,7 @@ nlu:
     - wiso
     - sankon
     - waschi
-    - joshin
+    - yoshin
     - panshin
     - coro
     - nonti
@@ -609,7 +614,7 @@ nlu:
     - dame mi progreso
     - cuánto he aprendido
     - cuanto he aprendido
-    - mostrame mi avance
+    - muéstrame mi avance
     - mi avance
     - quiero ver mi avance
 

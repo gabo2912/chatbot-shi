@@ -388,7 +388,7 @@ class ValidateActividadForm(FormValidationAction):
         # hace falta lógica adicional.
 
         ayuda_explicita = {
-            "ayuda", "ayudame", "pista", "hint",
+            "ayuda", "ayúdame", "pista", "hint",
             "dame pista", "dame una pista",
             "no se", "no entiendo", "me cuesta"
         }
@@ -714,7 +714,7 @@ class ActionEvaluarRespuestaVocab(Action):
         if intento_actual < MAX_INTENTOS_VOCAB:
             # Aún quedan intentos. Damos feedback y volvemos a pedir la respuesta.
             if resultado == "parcial":
-                feedback = "Casi. 🤏 Fijate en la ortografía y probá de nuevo."
+                feedback = "Casi. 🤏 Fíjate en la ortografía y prueba de nuevo."
             else:
                 pista = _pista_segun_modo(info, modo)
                 feedback = f"No es esa. 💡 Pista: {pista}"
@@ -998,7 +998,7 @@ class ActionEvaluarRespuestaCuento(Action):
         # ── NO CORRECTA: aplicar ciclo de reintentos dentro del cuento ──────
         if intento_actual < MAX_INTENTOS_CUENTO:
             if resultado == "parcial":
-                feedback = "Te acercaste. 🤏 Fijate en la ortografía y probá de nuevo."
+                feedback = "Te acercaste. 🤏 Fíjate en la ortografía y prueba de nuevo."
             else:
                 ayuda_msg = frag.get("ayuda") or "Lee el fragmento con calma y piensa en el contexto."
                 feedback = f"No es esa. 💡 Pista: {ayuda_msg}"
@@ -1267,15 +1267,15 @@ _PALABRAS_DESPEDIDA = {
 _TPL_TRAD_ES_A_SHP = [
     "🌿 *{es}* en shipibo se dice *{shp}*.",
     "En shipibo, *{es}* es *{shp}*. Buena para tener a mano.",
-    "*{es}* → *{shp}*. ¿Querés otra del mismo tipo?",
-    "Anotala: *{es}* se dice *{shp}* en shipibo.",
+    "*{es}* → *{shp}*. ¿Quieres otra del mismo tipo?",
+    "Anótala: *{es}* se dice *{shp}* en shipibo.",
 ]
 
 _TPL_TRAD_SHP_A_ES = [
     "🔄 *{shp}* en shipibo significa *{es}* en español.",
     "*{shp}* es *{es}*. Bien por reconocerla.",
     "Conozco esa: *{shp}* quiere decir *{es}*.",
-    "*{shp}* = *{es}*. ¿Querés que te diga otra palabra?",
+    "*{shp}* = *{es}*. ¿Quieres que te diga otra palabra?",
 ]
 
 # Plantillas para frases conversacionales (del loader)
@@ -1287,40 +1287,40 @@ _TPL_FRASE_SHP = [
 
 _TPL_FRASE_ES = [
     "💬 En shipibo, *{es}* se dice *{shp}*.",
-    "*{es}* → *{shp}*. Te la podés guardar para más adelante.",
-    "Para decir *{es}* en shipibo usá *{shp}*.",
+    "*{es}* → *{shp}*. Te la puedes guardar para más adelante.",
+    "Para decir *{es}* en shipibo usa *{shp}*.",
 ]
 
 # Plantillas para cuando el usuario REPITE un saludo o frase ya respondida
 _TPL_REPETICION_SALUDO = [
-    "Veo que volvés a saludar 🌿. ¿Querés que te muestre otras formas de saludar, o probamos otra cosa?",
-    "Otro saludo, je. Si querés, te puedo mostrar despedidas o agradecimientos en shipibo.",
+    "Veo que vuelves a saludar 🌿. ¿Quieres que te muestre otras formas de saludar, o probamos otra cosa?",
+    "Otro saludo. Si quieres, te puedo mostrar despedidas o agradecimientos en shipibo.",
     "¿Probamos algo distinto? Te puedo decir cómo despedirte o agradecer en shipibo.",
 ]
 
 _TPL_REPETICION_TRAD = [
-    "Esa ya la vimos. ¿Querés que te diga otra palabra parecida?",
-    "Bien por practicarla. Si querés explorar más, te puedo dar otra de la misma categoría.",
+    "Esa ya la vimos. ¿Quieres que te diga otra palabra parecida?",
+    "Bien por practicarla. Si quieres explorar más, te puedo dar otra de la misma categoría.",
 ]
 
 # Despedidas que el bot envía
 _TPL_DESPEDIDA = [
-    "🌿 *Kabanon* (hasta luego). Volvé cuando quieras seguir aprendiendo shipibo.",
+    "🌿 *Kabanon* (hasta luego). Vuelve cuando quieras seguir aprendiendo shipibo.",
     "¡Eara jopariai! Hasta la próxima.",
     "Kabanon. Buen camino con el shipibo. 🌟",
 ]
 
 # Plantillas de fallback (cuando no se reconoce nada)
 _TPL_FALLBACK = [
-    "🤔 Esa no la tengo todavía. Probá con un saludo o pedime traducir una palabra como *agua* o *jene*.",
-    "No reconozco eso. ¿Querés que te muestre un saludo, una palabra del corpus o algo de la cultura?",
+    "🤔 Esa no la tengo todavía. Prueba con un saludo o pedime traducir una palabra como *agua* o *jene*.",
+    "No reconozco eso. ¿Quieres que te muestre un saludo, una palabra del corpus o algo de la cultura?",
     "Esa frase no la conozco. Te puedo ayudar con traducciones, saludos o curiosidades culturales.",
 ]
 
 # Bienvenidas: una corta para entradas repetidas, una más rica la primera vez
 _BIENVENIDA_PRIMERA = (
     "¡Jawekeskarin! 🌿 Soy *Pishico*, tu compañero para aprender shipibo. "
-    "¿Por dónde querés empezar?"
+    "¿Por dónde quieres empezar?"
 )
 _BIENVENIDA_REPETIDA = (
     "Volviste a Conversar. ¿Qué te gustaría hacer ahora?"
@@ -1343,7 +1343,7 @@ def _es_pregunta_cultural(texto: str) -> bool:
     if "?" in t or "¿" in t:
         return True
     palabras_pregunta = {"qué", "que", "cómo", "como", "por", "dónde", "donde",
-                         "cuál", "cual", "explícame", "explicame", "contame", "cuéntame"}
+                         "cuál", "cual", "explícame", "explicame", "cuéntame", "cuéntame"}
     primera = t.split()[0] if t.split() else ""
     return primera in palabras_pregunta
 
@@ -1351,7 +1351,7 @@ def _es_pregunta_cultural(texto: str) -> bool:
 def _botones_default():
     """Botones genéricos para fomentar conversación."""
     return [
-        {"title": "Decime un saludo",  "payload": "Hola"},
+        {"title": "Dime un saludo",  "payload": "Hola"},
         {"title": "Traducime una palabra", "payload": "agua"},
         {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
     ]
@@ -1365,7 +1365,7 @@ def _botones_tras_traduccion(palabra_es: str, categoria: Optional[str] = None):
             "title": f"Otra de {categoria}",
             "payload": f"otra palabra de {categoria}",
         })
-    btns.append({"title": "Decime un saludo", "payload": "Hola"})
+    btns.append({"title": "Dime un saludo", "payload": "Hola"})
     btns.append({"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"})
     return btns
 
@@ -1456,7 +1456,7 @@ class ActionResponderConversacion(Action):
 
         # ── 2. "Otra palabra de X" — pedido explícito de palabra aleatoria ──
         m_cat = _re.search(
-            r"otra\s+palabra\s+(?:de\s+)?(naturaleza|animales|cuerpo|colores|objetos)",
+            r"otra\s+palabra\s+(?:de\s+)?(naturaleza|animales|cuerpo|colores|objetos|n[uú]meros)",
             texto.lower()
         )
         if m_cat:
@@ -1523,7 +1523,7 @@ class ActionResponderConversacion(Action):
                 else:
                     tpl = _random.choice(_TPL_FRASE_ES)
                 # Limpiar puntuación terminal del Excel ("Hola." → "Hola")
-                # para que las plantillas no muestren "Para decir 'Hola.' usá..."
+                # para que las plantillas no muestren "Para decir 'Hola.' usa..."
                 es_limpio  = match["es"].rstrip(".!?¡¿")
                 shp_limpio = match["shp"].rstrip(".!?¡¿")
                 mensaje = tpl.format(es=es_limpio, shp=shp_limpio)
