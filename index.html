@@ -36,48 +36,7 @@ body {
   color: var(--text-dark);
 }
 
-/* ── Modal de registro ──────────────────────────────────────────── */
-#modal-overlay {
-  position: fixed; inset: 0;
-  background: var(--modal-overlay);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000;
-}
-#modal-overlay.hidden { display: none; }
-#modal-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 2rem;
-  width: 380px;
-  max-width: 92vw;
-  text-align: center;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-}
-#modal-card .modal-avatar {
-  width: 72px; height: 72px;
-  border-radius: 50%;
-  background: var(--sidebar-bg);
-  margin: 0 auto 1rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 2rem;
-}
-#modal-card h2 { font-size: 1.25rem; margin-bottom: .25rem; color: var(--text-dark); }
-#modal-card p  { font-size: .875rem; color: var(--text-muted); margin-bottom: 1.5rem; }
-.modal-input {
-  width: 100%; padding: .7rem 1rem;
-  border: 1.5px solid #ddd; border-radius: 8px;
-  font-size: .95rem; outline: none; margin-bottom: .75rem;
-  transition: border-color .2s;
-}
-.modal-input:focus { border-color: var(--accent); }
-.modal-btn {
-  width: 100%; padding: .8rem;
-  background: var(--accent); color: #fff;
-  border: none; border-radius: 8px;
-  font-size: 1rem; font-weight: 600; cursor: pointer;
-  transition: background .2s;
-}
-.modal-btn:hover { background: var(--sidebar-hover); }
+/* Modal eliminado: sender_id se genera anónimo */
 
 /* ── Sidebar ────────────────────────────────────────────────────── */
 #sidebar {
@@ -470,21 +429,95 @@ body {
   transition: width .6s ease;
 }
 .cat-sub { font-size: .78rem; color: var(--text-muted); margin-top: .35rem; }
+
+/* ── Home (vista de inicio) ─────────────────────────────────────── */
+#home-view {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2.5rem 1.5rem;
+  overflow-y: auto;
+  background: var(--chat-bg);
+}
+#home-view.visible { display: flex; }
+
+.home-hero {
+  text-align: center;
+  margin-bottom: 2rem;
+  max-width: 560px;
+}
+.home-mascot {
+  font-size: 4rem;
+  margin-bottom: .5rem;
+  line-height: 1;
+}
+.home-hero h1 {
+  font-size: 2rem;
+  color: var(--text-dark);
+  margin-bottom: .5rem;
+  font-weight: 700;
+}
+.home-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+.home-question {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  max-width: 720px;
+  width: 100%;
+}
+.home-card {
+  background: white;
+  border: 2px solid #e0d7b8;
+  border-radius: 14px;
+  padding: 1.5rem 1.25rem;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease, background .15s ease;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+.home-card:hover {
+  border-color: var(--sidebar-bg);
+  background: #fdf6e3;
+  transform: translateY(-2px);
+}
+.home-card-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: .25rem;
+}
+.home-card h3 {
+  font-size: 1.02rem;
+  color: var(--text-dark);
+  margin: 0;
+  font-weight: 600;
+}
+.home-card p {
+  font-size: .85rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
 </style>
 </head>
 <body>
 
-<!-- ── Modal de registro ────────────────────────────────────────── -->
-<div id="modal-overlay">
-  <div id="modal-card">
-    <div class="modal-avatar">🦜</div>
-    <h2>¡Bienvenido a Pishico Bot!</h2>
-    <p>Tu asistente para aprender shipibo-konibo.<br>Cuéntanos cómo te llamás para personalizar tu experiencia.</p>
-    <input id="reg-nombre" class="modal-input" type="text"   placeholder="Tu nombre" maxlength="60">
-    <input id="reg-email"  class="modal-input" type="email"  placeholder="Tu correo (opcional)" maxlength="100">
-    <button class="modal-btn" onclick="registrar()">Comenzar a aprender</button>
-  </div>
-</div>
+<!-- Modal eliminado -->
 
 <!-- ── App principal ────────────────────────────────────────────── -->
 <div id="app" style="display:flex;width:100%;height:100vh;">
@@ -499,7 +532,14 @@ body {
     </div>
 
     <nav>
-      <button class="nav-btn active" id="btn-vocab" onclick="setVista('vocab')">
+      <button class="nav-btn active" id="btn-home" onclick="setVista('home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9,22 9,12 15,12 15,22"/>
+        </svg>
+        INICIO
+      </button>
+      <button class="nav-btn" id="btn-vocab" onclick="setVista('vocab')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M4 6h16M4 12h10M4 18h7"/>
         </svg>
@@ -525,17 +565,47 @@ body {
       </button>
     </nav>
 
-    <div class="sidebar-user">
-      <div class="user-initials" id="user-initials">U</div>
-      <div class="user-info">
-        <span class="u-name"  id="sidebar-nombre">Usuario</span>
-        <span class="u-email" id="sidebar-email">usuario@mail.com</span>
-      </div>
-    </div>
+<!-- sidebar-user eliminado (sin login) -->
   </aside>
 
   <!-- Main -->
   <main id="main">
+    <!-- ── Vista Home (inicio) ─────────────────────────────────── -->
+    <div id="home-view">
+      <div class="home-hero">
+        <div class="home-mascot">🦜</div>
+        <h1>¡Jawekeskarin!</h1>
+        <p class="home-subtitle">
+          Soy <strong>Pishico</strong>, tu compañero para aprender shipibo-konibo.
+          Practicá vocabulario, leé cuentos o conversemos.
+        </p>
+        <p class="home-question">¿Qué te gustaría hacer hoy?</p>
+      </div>
+
+      <div class="home-cards">
+        <button class="home-card" onclick="setVista('vocab')">
+          <span class="home-card-emoji">📚</span>
+          <h3>Aprender vocabulario</h3>
+          <p>Practicá palabras shipibo por categoría con feedback pedagógico.</p>
+        </button>
+        <button class="home-card" onclick="setVista('cuento')">
+          <span class="home-card-emoji">📖</span>
+          <h3>Leer un cuento</h3>
+          <p>Sumergite en historias tradicionales con preguntas guiadas.</p>
+        </button>
+        <button class="home-card" onclick="setVista('conversar')">
+          <span class="home-card-emoji">💬</span>
+          <h3>Conversar conmigo</h3>
+          <p>Charla libre en español y shipibo, con curiosidades culturales.</p>
+        </button>
+        <button class="home-card" onclick="setVista('progreso')">
+          <span class="home-card-emoji">📊</span>
+          <h3>Mi aprendizaje</h3>
+          <p>Revisá tu progreso por categoría y nivel pedagógico.</p>
+        </button>
+      </div>
+    </div>
+
     <!-- Header -->
     <div id="chat-header">
       <div class="header-icon">
@@ -577,12 +647,9 @@ body {
 const RASA = '/webhooks/rest/webhook';  // proxy en server.py
 
 // ── Estado ─────────────────────────────────────────────────────────
-let senderID  = localStorage.getItem('pishico_sender_id')  || '';
-let userName  = localStorage.getItem('pishico_nombre')      || '';
-let userEmail = localStorage.getItem('pishico_email')       || '';
-let progreso  = JSON.parse(localStorage.getItem('pishico_progreso') || '{}');
-let primeraVista = true;  // evita enviar msg de Rasa al cargar la vista inicial
-// progreso = { naturaleza: {dominadas:0, total:11}, animales: {...}, ... }
+// sender_id: UUID anónimo persistido en localStorage; se genera la primera vez
+// que el usuario abre la app, sin pedir datos. Sin modal de registro.
+let senderID = localStorage.getItem('pishico_sender_id') || '';
 
 const TOTAL_PALABRAS = {
   naturaleza: 11, animales: 13, cuerpo: 12, colores: 9, objetos: 9
@@ -594,10 +661,14 @@ const EMOJI_CAT = {
 // ── Init ────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   if (!senderID) {
-    document.getElementById('modal-overlay').classList.remove('hidden');
-  } else {
-    iniciarApp();
+    senderID = generarUUID();
+    localStorage.setItem('pishico_sender_id', senderID);
   }
+  // Limpiar claves legacy de versiones anteriores (registro de usuario, progreso local)
+  localStorage.removeItem('pishico_nombre');
+  localStorage.removeItem('pishico_email');
+  localStorage.removeItem('pishico_progreso');
+  iniciarApp();
 });
 
 function generarUUID() {
@@ -607,31 +678,10 @@ function generarUUID() {
   });
 }
 
-function registrar() {
-  const nom = document.getElementById('reg-nombre').value.trim();
-  const eml = document.getElementById('reg-email').value.trim();
-  if (!nom) {
-    document.getElementById('reg-nombre').focus();
-    return;
-  }
-  senderID  = generarUUID();
-  userName  = nom;
-  userEmail = eml;
-  localStorage.setItem('pishico_sender_id', senderID);
-  localStorage.setItem('pishico_nombre',    userName);
-  localStorage.setItem('pishico_email',     userEmail);
-  document.getElementById('modal-overlay').classList.add('hidden');
-  iniciarApp();
-}
-
 function iniciarApp() {
-  actualizarSidebar();
-  // Iniciar directamente en el flujo de vocabulario (vista izquierda)
-  // sin saludo ni oferta de opciones.
-  setTimeout(async () => {
-    primeraVista = false;
-    await iniciarFlujo('/aprender_vocabulario');
-  }, 400);
+  // Al cargar la app, abrimos la vista Home con la bienvenida.
+  // No disparamos ningún flujo automático: el usuario elige desde el home.
+  setVista('home');
 }
 
 function setInputHabilitado(habilitado, placeholder = 'Pregunta lo que desees') {
@@ -858,38 +908,64 @@ async function iniciarConversacion() {
   await enviarARasa('/conversar');
 }
 
-function actualizarSidebar() {
-  const ini = userName ? userName[0].toUpperCase() : 'U';
-  document.getElementById('user-initials').textContent  = ini;
-  document.getElementById('sidebar-nombre').textContent = userName  || 'Usuario';
-  document.getElementById('sidebar-email').textContent  = userEmail || '';
-}
+// actualizarSidebar eliminada (no había datos de usuario)
 
 // ── Navegación ──────────────────────────────────────────────────────
+
+/**
+ * Resetea el backend de Rasa para que el cambio de vista deje un estado limpio.
+ * Se llama antes de mostrar cualquier vista de actividad (vocab/cuento/conversar).
+ * Si el form de vocabulario o cuento estaba activo en otra vista, /restart lo cierra.
+ */
+async function resetBackend() {
+  try {
+    await fetch(RASA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender: senderID, message: '/restart' })
+    });
+  } catch (_) {
+    // si Rasa no está disponible, seguimos igual; las vistas locales funcionan
+  }
+}
+
 function setVista(vista) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   window._enModoConversar = (vista === 'conversar');
-  const chatView    = document.getElementById('chat-view');
-  const panelProg   = document.getElementById('panel-progreso');
-  const titulo      = document.getElementById('chat-titulo');
-  const subtitulo   = document.getElementById('chat-subtitulo');
+  const chatView  = document.getElementById('chat-view');
+  const panelProg = document.getElementById('panel-progreso');
+  const homeView  = document.getElementById('home-view');
+  const titulo    = document.getElementById('chat-titulo');
+  const subtitulo = document.getElementById('chat-subtitulo');
 
-  if (vista === 'vocab') {
+  // Ocultar todas las vistas; cada rama decide cuál mostrar.
+  chatView.style.display = 'none';
+  panelProg.classList.remove('visible');
+  homeView.classList.remove('visible');
+
+  if (vista === 'home') {
+    document.getElementById('btn-home').classList.add('active');
+    homeView.classList.add('visible');
+    setInputHabilitado(false, '');
+    titulo.textContent    = 'Inicio';
+    subtitulo.textContent = 'Elegí una actividad para empezar';
+    // Resetear backend en silencio para limpiar cualquier form pendiente
+    resetBackend();
+  } else if (vista === 'vocab') {
     setInputHabilitado(false, 'Selecciona una categoría para empezar');
     document.getElementById('btn-vocab').classList.add('active');
     chatView.style.display = 'flex';
-    panelProg.classList.remove('visible');
     titulo.textContent    = 'Aprendizaje de Vocabulario';
     subtitulo.textContent = 'Elige una categoría';
-    if (!primeraVista) mostrarSelectorCategoria();
+    // Limpiar backend + mostrar selector siempre (sin primeraVista)
+    resetBackend().then(() => mostrarSelectorCategoria());
   } else if (vista === 'cuento') {
     setInputHabilitado(false, 'Selecciona un cuento desde la biblioteca');
     document.getElementById('btn-cuento').classList.add('active');
     chatView.style.display = 'flex';
-    panelProg.classList.remove('visible');
     titulo.textContent    = 'Cuentos interactivos';
     subtitulo.textContent = 'Elige una historia para comenzar';
-    if (!primeraVista) mostrarBibliotecaCuentos();
+    resetBackend().then(() => mostrarBibliotecaCuentos());
   } else if (vista === 'conversar') {
     setInputHabilitado(true, 'Escribe en español o shipibo...');
     document.getElementById('btn-conversar').classList.add('active');
@@ -925,7 +1001,7 @@ function addMessage(role, text, buttons = []) {
     </svg>`;
   } else {
     icon.className = 'msg-icon user-icon';
-    icon.textContent = userName ? userName[0].toUpperCase() : 'U';
+    icon.textContent = 'U';
   }
 
   // Burbuja
@@ -1031,8 +1107,7 @@ async function enviar(texto) {
       if (m.text) {
         addMessage('bot', m.text, m.buttons || []);
         // Registrar progreso local si el mensaje indica correcto
-        if (m.text.includes('✅')) registrarProgresLocal(m.text);
-      }
+}
     });
   } catch (err) {
     quitarTyping();
@@ -1096,20 +1171,6 @@ function inyectarModoEnPayload(payload) {
   return `${payload}{"modo_practica":"${modo}"}`;
 }
 
-// ── Progreso local (localStorage) ──────────────────────────────────
-function registrarProgresLocal(texto) {
-  const cats = Object.keys(TOTAL_PALABRAS);
-  cats.forEach(cat => {
-    if (texto.toLowerCase().includes(cat)) {
-      if (!progreso[cat]) progreso[cat] = { dominadas: 0, total: TOTAL_PALABRAS[cat] };
-      progreso[cat].dominadas = Math.min(
-        progreso[cat].dominadas + 1,
-        TOTAL_PALABRAS[cat]
-      );
-    }
-  });
-  localStorage.setItem('pishico_progreso', JSON.stringify(progreso));
-}
 
 // ── Panel Mi Aprendizaje ─────────────────────────────────────────────
 /**

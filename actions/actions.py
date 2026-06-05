@@ -368,14 +368,14 @@ class ValidateActividadForm(FormValidationAction):
             if intent == "iniciar_cuento" or "cuento" in texto_norm:
                 dispatcher.utter_message(
                     text=(
-                        "Termina esta palabra o escribe **pausa** "
+                        "Termina esta palabra "
                         "para salir de la actividad actual. 📖"
                     )
                 )
             else:
                 dispatcher.utter_message(
                     text=(
-                        "Termina esta palabra o escribe **pausa** "
+                        "Termina esta palabra "
                         "para salir de la actividad actual. 🔄"
                     )
                 )
@@ -704,7 +704,6 @@ class ActionEvaluarRespuestaVocab(Action):
             dispatcher.utter_message(text=mensaje + "\n¿Seguimos?", buttons=[
                 {"title": "Siguiente palabra", "payload": "continuar"},
                 {"title": "Cambiar modo",      "payload": "/seleccionar_modo"},
-                {"title": "Pausar",            "payload": "pausa"},
             ])
             return eventos_base + [
                 SlotSet("intentos_palabra", 0),  # reset para la siguiente palabra
