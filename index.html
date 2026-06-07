@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pishico Bot — Aprendizaje Shipibo-Konibo</title>
+<link rel="icon" type="image/png" href="images/logo.png">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -53,14 +54,18 @@ body {
  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .bot-avatar-wrap {
- width: 80px; height: 80px;
+ width: 92px; height: 92px;
  border-radius: 50%;
- background: rgba(255,255,255,0.12);
+ background: rgba(255,255,255,0.92);
  display: flex; align-items: center; justify-content: center;
  margin-bottom:.6rem;
  overflow: hidden;
 }
-.bot-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.bot-avatar-wrap img {
+ width: 136%; height: 136%;
+ object-fit: cover;
+ border-radius: 50%;
+}
 .bot-avatar-placeholder {
  font-size: 2.2rem; line-height: 1;
 }
@@ -454,9 +459,14 @@ body {
  max-width: 560px;
 }
 .home-mascot {
- font-size: 4rem;
+ width: 112px;
+ height: 112px;
  margin-bottom:.5rem;
- line-height: 1;
+ border-radius: 50%;
+ background: #fff;
+ object-fit: cover;
+ transform: scale(1.28);
+ box-shadow: 0 4px 14px rgba(0,0,0,0.10);
 }
 .home-hero h1 {
  font-size: 2rem;
@@ -528,12 +538,13 @@ body {
 
  <!-- Sidebar -->
  <aside id="sidebar">
- <div class="sidebar-top">
- <div class="bot-avatar-wrap">
- <span class="bot-avatar-placeholder">🦜</span>
- </div>
- <h2>Pishico Bot</h2>
- </div>
+  <div class="sidebar-top">
+  <div class="bot-avatar-wrap">
+  <img src="images/logo.png" alt="Logo de Pishico Bot" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+  <span class="bot-avatar-placeholder" style="display:none;">🦜</span>
+  </div>
+  <h2>Pishico Bot</h2>
+  </div>
 
  <nav>
  <button class="nav-btn active" id="btn-home" onclick="setVista('home')">
@@ -575,10 +586,9 @@ body {
  <!-- Main -->
  <main id="main">
  <!-- ── Vista Home (inicio) ─────────────────────────────────── -->
- <div id="home-view">
- <div class="home-hero">
- <div class="home-mascot">🦜</div>
- <h1>¡Jawekeskarin!</h1>
+  <div id="home-view">
+  <div class="home-hero">
+  <h1>¡Jawekeskarin!</h1>
  <p class="home-subtitle">
  Soy <strong>Pishico</strong>, tu compañero para aprender shipibo-konibo.
  Practicá vocabulario, leé cuentos o conversemos.

@@ -13,6 +13,7 @@ Uso:
 """
 
 import json
+import mimetypes
 import sqlite3
 import urllib.request
 import urllib.error
@@ -26,6 +27,7 @@ PORT         = 8080
 # El proxy puede estar fuera de la carpeta actions/, así que probamos varias ubicaciones
 HERE         = Path(__file__).parent
 HTML_FILE    = HERE / "index.html"
+IMAGES_DIR   = HERE / "images"
 DB_CANDIDATES = [
     HERE / "actions" / "progress.db",
     HERE / "progress.db",
@@ -339,6 +341,18 @@ class PishicoProxy(BaseHTTPRequestHandler):
                     self._json(200, json.loads(r.read()))
             except Exception:
                 self._json(503, {"error": "Rasa no disponible"})
+
+        elif self.path.startswith("/images/"):
+            name = self.path.split("/images/", 1)[1]
+            path = (IMAGES_DIR / name).resolve()
+            if not str(path).startswith(str(IMAGES_DIR.resolve())) or not path.is_file():
+                self._error(404, "Imagen no encontrada")
+                return
+            content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.end_headers()
+            self.wfile.write(path.read_bytes())
 
         elif self.path.startswith("/progreso/"):
             sid = self.path.split("/progreso/", 1)[1]
