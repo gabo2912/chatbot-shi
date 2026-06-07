@@ -37,6 +37,8 @@ from db import (
     registrar_fragmento_cuento,
     ultima_posicion,
     ultima_posicion_cuento,
+    ultima_palabra_en_categoria,
+    ultimo_fragmento_acertado,
     get_resumen_categorias,
     get_resumen_cuento,
 )
@@ -527,17 +529,14 @@ class ActionIniciarVocabulario(Action):
             else:
                 categoria = CATEGORIAS_VALIDAS[0]
 
-        # 3) Ultima posicion registrada en DB para el usuario
-        palabra_retomada = None
-        categoria_retomada = None
+        # 3) Si aún no hay categoría (no vino del frontend ni del texto),
+        #    retomar la última categoría que el usuario practicó.
         if categoria is None:
             ultima = ultima_posicion(tracker.sender_id)
             if ultima:
-                categoria_db, palabra_db = ultima
-                if categoria_db in CATEGORIAS_VALIDAS and encontrar_palabra(categoria_db, palabra_db):
+                categoria_db, _ = ultima
+                if categoria_db in CATEGORIAS_VALIDAS:
                     categoria = categoria_db
-                    categoria_retomada = categoria_db
-                    palabra_retomada = palabra_db
 
         # 4) Fallback: primera categoría disponible
         if categoria is None:
@@ -550,11 +549,25 @@ class ActionIniciarVocabulario(Action):
             )
             return []
 
-        palabra = palabras[0]
-        if palabra_retomada and categoria == categoria_retomada:
-            info_retomada = encontrar_palabra(categoria, palabra_retomada)
-            if info_retomada:
-                palabra = info_retomada
+        # ── Decidir QUÉ palabra mostrar ─────────────────────────────────────
+        # Regla: si el usuario ya practicó en esta categoría antes, retomamos
+        # en la palabra SIGUIENTE a la última que vio (acertada o no).
+        # Si nunca practicó esta categoría, arrancamos en la primera.
+        # Esto se aplica siempre, sin importar si la categoría vino del
+        # frontend, del texto del usuario o de la BD.
+        ultima_palabra_es = ultima_palabra_en_categoria(tracker.sender_id, categoria)
+        es_retomada = False
+        if ultima_palabra_es:
+            info_ultima = encontrar_palabra(categoria, ultima_palabra_es)
+            if info_ultima:
+                # Avanzar a la siguiente palabra usando el helper del corpus
+                palabra = siguiente_palabra(categoria, ultima_palabra_es) or palabras[0]
+                es_retomada = True
+            else:
+                # La palabra ya no existe en el corpus (corpus cambió) → empezar de cero
+                palabra = palabras[0]
+        else:
+            palabra = palabras[0]
 
         # ── Modo de práctica ────────────────────────────────────────────
         # Si no hay modo elegido todavía, se usa es_a_shp por defecto.
@@ -566,11 +579,11 @@ class ActionIniciarVocabulario(Action):
         # Formular la pregunta directamente, sin selector intermedio
         pregunta = _formular_pregunta(palabra, modo_actual)
 
-        if palabra_retomada and palabra["es"] == palabra_retomada:
+        if es_retomada:
             mensaje = (
                 f"Retomemos tu avance. 🌿\n"
                 f"Categoría: *{categoria}*\n\n"
-                f"Te quedaste en esta palabra.\n{pregunta}"
+                f"Continuamos con la siguiente palabra.\n{pregunta}"
             )
         else:
             mensaje = (
@@ -807,22 +820,40 @@ class ActionIniciarCuento(Action):
             cuento_id = CUENTO_PREDETERMINADO
         idx = 0
 
+        # ── Determinar el cuento_id a abrir ─────────────────────────────────
+        # Si el usuario eligió un cuento explícitamente, se respeta esa elección.
+        # Si no, se retoma el último cuento que el usuario abrió.
         ultima_cuento = ultima_posicion_cuento(tracker.sender_id)
-        if ultima_cuento:
-            cuento_db, fragmento_db = ultima_cuento
-            if cuento_elegido:
-                # Elección explícita: retomar solo si es el mismo cuento.
-                if cuento_db == cuento_elegido and cuento_por_id(cuento_db):
-                    idx = max(0, int(fragmento_db))
-            else:
-                # Sin elección explícita: retomar el último cuento abierto.
-                if cuento_por_id(cuento_db):
-                    cuento_id = cuento_db
-                    idx = max(0, int(fragmento_db))
+        if not cuento_elegido and ultima_cuento and cuento_por_id(ultima_cuento[0]):
+            cuento_id = ultima_cuento[0]
+
+        # ── Decidir qué fragmento mostrar (retomar correctamente) ──────────
+        # Regla: si el usuario YA acertó algún fragmento de este cuento,
+        # arrancamos en el SIGUIENTE al último acertado (no en el último visto,
+        # que pudo haber sido fallido y nos llevaría a repetirlo).
+        # Si nunca acertó nada, arrancamos en el fragmento 0.
+        idx = 0
+        resumen_anterior = None
+        ultimo_ok = ultimo_fragmento_acertado(tracker.sender_id, cuento_id)
+        if ultimo_ok is not None:
+            # Guardamos un resumen breve del último fragmento acertado
+            # para dar contexto al usuario antes de seguir.
+            frag_anterior = _cuento_fragmento(cuento_id, ultimo_ok)
+            if frag_anterior:
+                texto_ant = (frag_anterior.get("texto") or "").strip()
+                # Resumen = primera oración (hasta el primer punto) o primeros 140 chars
+                primer_punto = texto_ant.find(". ")
+                if 0 < primer_punto < 200:
+                    resumen_anterior = texto_ant[:primer_punto + 1]
+                else:
+                    resumen_anterior = (texto_ant[:140] + "…") if len(texto_ant) > 140 else texto_ant
+            idx = ultimo_ok + 1
 
         total = _cuento_total_fragmentos(cuento_id)
         if total and idx >= total:
+            # El usuario terminó el cuento. Reiniciamos en 0 con mensaje.
             idx = 0
+            resumen_anterior = None
 
         frag = _cuento_fragmento(cuento_id, idx)
         if not frag:
@@ -830,8 +861,22 @@ class ActionIniciarCuento(Action):
             return []
 
         titulo = _cuento_titulo(cuento_id)
-        if ultima_cuento and cuento_id == ultima_cuento[0]:
-            mensaje = f"📖 Retomemos tu cuento: **{titulo}** — Parte {idx + 1}\n\n{frag['texto']}"
+        # ── Componer el mensaje ─────────────────────────────────────────────
+        # Caso 1: retomamos un cuento con resumen del último acertado
+        # Caso 2: retomamos el mismo cuento sin progreso previo acertado
+        # Caso 3: arranque limpio (nuevo cuento o reinicio tras completar)
+        if resumen_anterior:
+            mensaje = (
+                f"📖 Retomemos tu cuento: **{titulo}**\n\n"
+                f"_Última parte que completaste:_\n"
+                f"_\"{resumen_anterior}\"_\n\n"
+                f"**Parte {idx + 1}**\n\n{frag['texto']}"
+            )
+        elif ultima_cuento and cuento_id == ultima_cuento[0]:
+            mensaje = (
+                f"📖 Retomemos tu cuento: **{titulo}** — Parte {idx + 1}\n\n"
+                f"{frag['texto']}"
+            )
         else:
             mensaje = f"📖 **{titulo}** — Parte {idx + 1}\n\n{frag['texto']}"
         if frag.get("pregunta"):
@@ -1262,36 +1307,40 @@ _PALABRAS_DESPEDIDA = {
     "kabanon", "eara jopariai", "jopariai",
 }
 
-# Plantillas para responder traducciones del corpus (palabra→español está en
-# clave "es"). {es} y {shp} se rellenan con la palabra original y su equivalente.
+# Plantillas para responder traducciones del corpus.
+# Diseño: todas comparten estructura y emoji estable. Solo varía la
+# formulación natural en español. Esto evita la sensación de que el bot
+# "cambia de formato" entre turnos.
 _TPL_TRAD_ES_A_SHP = [
     "🌿 *{es}* en shipibo se dice *{shp}*.",
-    "En shipibo, *{es}* es *{shp}*. Buena para tener a mano.",
-    "*{es}* → *{shp}*. ¿Quieres otra del mismo tipo?",
-    "Anótala: *{es}* se dice *{shp}* en shipibo.",
+    "🌿 En shipibo, *{es}* es *{shp}*.",
+    "🌿 *{es}* → *{shp}*.",
+    "🌿 Para decir *{es}* en shipibo usa *{shp}*.",
 ]
 
 _TPL_TRAD_SHP_A_ES = [
-    "🔄 *{shp}* en shipibo significa *{es}* en español.",
-    "*{shp}* es *{es}*. Bien por reconocerla.",
-    "Conozco esa: *{shp}* quiere decir *{es}*.",
-    "*{shp}* = *{es}*. ¿Quieres que te diga otra palabra?",
+    "🔄 *{shp}* en español significa *{es}*.",
+    "🔄 En español, *{shp}* es *{es}*.",
+    "🔄 *{shp}* → *{es}*.",
+    "🔄 La palabra *{shp}* quiere decir *{es}*.",
 ]
 
-# Plantillas para frases conversacionales (del loader)
+# Plantillas para frases conversacionales (del loader interaccion_loader).
+# Emoji estable 💬 + misma estructura básica.
 _TPL_FRASE_SHP = [
-    "💬 *{shp}* en shipibo significa *{es}*.",
-    "Esa es una forma común en shipibo. *{shp}* es *{es}* en español.",
-    "*{shp}* se traduce como *{es}*. Buena frase para aprender.",
+    "💬 *{shp}* en español significa *{es}*.",
+    "💬 En español, *{shp}* es *{es}*.",
+    "💬 *{shp}* → *{es}*.",
 ]
 
 _TPL_FRASE_ES = [
-    "💬 En shipibo, *{es}* se dice *{shp}*.",
-    "*{es}* → *{shp}*. Te la puedes guardar para más adelante.",
-    "Para decir *{es}* en shipibo usa *{shp}*.",
+    "💬 *{es}* en shipibo se dice *{shp}*.",
+    "💬 En shipibo, *{es}* es *{shp}*.",
+    "💬 *{es}* → *{shp}*.",
 ]
 
 # Plantillas para cuando el usuario REPITE un saludo o frase ya respondida
+# (segundo turno con el MISMO tipo de consulta).
 _TPL_REPETICION_SALUDO = [
     "Veo que vuelves a saludar 🌿. ¿Quieres que te muestre otras formas de saludar, o probamos otra cosa?",
     "Otro saludo. Si quieres, te puedo mostrar despedidas o agradecimientos en shipibo.",
@@ -1301,6 +1350,16 @@ _TPL_REPETICION_SALUDO = [
 _TPL_REPETICION_TRAD = [
     "Esa ya la vimos. ¿Quieres que te diga otra palabra parecida?",
     "Bien por practicarla. Si quieres explorar más, te puedo dar otra de la misma categoría.",
+]
+
+# Escalación cuando el usuario manda EXACTAMENTE el mismo texto tres veces
+# o más seguidas. Empuja a cambiar de actividad con botones concretos.
+_TPL_ESCALACION_REPETICION = [
+    "Vi que escribiste *{texto}* varias veces. ¿Quieres probar otra cosa? "
+    "Te puedo enseñar vocabulario, iniciar un cuento o contarte algo de la cultura.",
+    "Has insistido con *{texto}*. Mejor cambiemos de tema: "
+    "te puedo llevar a vocabulario, a un cuento o a una curiosidad cultural.",
+    "Repetimos *{texto}* unas cuantas veces 🌱. ¿Te animas con vocabulario nuevo o un cuento?",
 ]
 
 # Despedidas que el bot envía
@@ -1405,6 +1464,84 @@ def _categoria_de_palabra(palabra_es: str) -> Optional[str]:
     return None
 
 
+# ── Helpers de variedad y detección de repetición ─────────────────────────
+
+def _formatear_sin_repetir(
+    plantillas: List[str],
+    ultima_respuesta: Optional[str],
+    **kwargs,
+) -> str:
+    """
+    Elige una plantilla al azar, formatea con kwargs, y evita devolver
+    un mensaje idéntico al último que el bot envió (ultima_respuesta_bot).
+
+    Necesario porque `random.choice` puro puede elegir la misma plantilla
+    dos turnos seguidos, lo que se siente robótico cuando el usuario manda
+    el mismo input dos veces (ej: "Buenas tardes" -> misma respuesta literal).
+    """
+    if not plantillas:
+        return ""
+    posibles = list(plantillas)
+    _random.shuffle(posibles)
+    for tpl in posibles:
+        try:
+            mensaje = tpl.format(**kwargs)
+        except (KeyError, IndexError):
+            continue
+        if mensaje != (ultima_respuesta or ""):
+            return mensaje
+    # Si todas las opciones coinciden con la última (improbable), devolver una.
+    return plantillas[0].format(**kwargs)
+
+
+def _texto_de_evento_user(evento: Dict[str, Any]) -> str:
+    """
+    Extrae el texto real del usuario de un evento 'user'.
+    En modo conversar el frontend envía el payload
+    /conversar{"texto_usuario": "..."} y el texto real vive en la entidad
+    texto_usuario; fuera de conversar, vive en parse_data.text.
+    """
+    if not evento or evento.get("event") != "user":
+        return ""
+    parse = evento.get("parse_data") or {}
+    for ent in parse.get("entities") or []:
+        if ent.get("entity") == "texto_usuario" and ent.get("value"):
+            return str(ent["value"])
+    return str(parse.get("text") or evento.get("text") or "")
+
+
+def _veces_repetido_input(tracker, texto_norm: str, max_check: int = 6) -> int:
+    """
+    Cuenta cuántos turnos user CONSECUTIVOS (incluyendo el actual) coinciden
+    con texto_norm. Se mira hacia atrás hasta encontrar un turno distinto
+    o agotar max_check.
+
+    Devuelve 1 si solo coincide el actual, 2 si el actual + el anterior, etc.
+    """
+    if not texto_norm:
+        return 0
+    eventos_user = [
+        e for e in (tracker.events or []) if e.get("event") == "user"
+    ][-max_check:]
+    veces = 0
+    for e in reversed(eventos_user):
+        otro = normalizar(_texto_de_evento_user(e))
+        if otro and otro == texto_norm:
+            veces += 1
+        else:
+            break
+    return veces
+
+
+def _botones_escalacion():
+    """Botones que ofrece la escalación tras 3+ repeticiones del mismo input."""
+    return [
+        {"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"},
+        {"title": "Quiero un cuento",     "payload": "/iniciar_cuento"},
+        {"title": "Algo de cultura",      "payload": "¿qué es el kené?"},
+    ]
+
+
 class ActionResponderConversacion(Action):
     """
     Maneja el modo conversación libre con respuestas naturalizadas.
@@ -1447,14 +1584,29 @@ class ActionResponderConversacion(Action):
             return self._bienvenida(dispatcher, tracker)
 
         ultima = tracker.get_slot("ultima_intencion_conv") or ""
+        ultima_respuesta = tracker.get_slot("ultima_respuesta_bot") or ""
 
         # ── 1. Despedida ────────────────────────────────────────────────────
+        # Tiene precedencia incluso sobre la escalación: si el usuario quiere
+        # cerrar, lo dejamos cerrar.
         if _es_despedida(texto):
-            mensaje = _random.choice(_TPL_DESPEDIDA)
+            mensaje = _formatear_sin_repetir(_TPL_DESPEDIDA, ultima_respuesta)
             dispatcher.utter_message(text=mensaje, buttons=_botones_tras_despedida())
             return self._cerrar(mensaje, "despedida")
 
-        # ── 2. "Otra palabra de X" — pedido explícito de palabra aleatoria ──
+        # ── 2. Escalación por repetición de input idéntico ──────────────────
+        # Si el usuario manda EXACTAMENTE el mismo texto 3 veces seguidas,
+        # cambiamos de táctica: ofrecemos rutas concretas para salir del bucle.
+        texto_norm = normalizar(texto)
+        veces = _veces_repetido_input(tracker, texto_norm)
+        if veces >= 3:
+            mensaje = _formatear_sin_repetir(
+                _TPL_ESCALACION_REPETICION, ultima_respuesta, texto=texto
+            )
+            dispatcher.utter_message(text=mensaje, buttons=_botones_escalacion())
+            return self._cerrar(mensaje, "escalacion")
+
+        # ── 3. "Otra palabra de X" — pedido explícito de palabra aleatoria ──
         m_cat = _re.search(
             r"otra\s+palabra\s+(?:de\s+)?(naturaleza|animales|cuerpo|colores|objetos|n[uú]meros)",
             texto.lower()
@@ -1465,7 +1617,7 @@ class ActionResponderConversacion(Action):
             if palabra:
                 mensaje = self._mensaje_traduccion_corpus(
                     palabra["es"], palabra["shp"], es_origen_shipibo=False,
-                    incluir_curiosidad=True,
+                    incluir_curiosidad=True, ultima_respuesta=ultima_respuesta,
                 )
                 dispatcher.utter_message(
                     text=mensaje,
@@ -1473,8 +1625,7 @@ class ActionResponderConversacion(Action):
                 )
                 return self._cerrar(mensaje, "traduccion")
 
-        # ── 3. Palabra del corpus (54 palabras) ─────────────────────────────
-        texto_norm = normalizar(texto)
+        # ── 4. Palabra del corpus (54 palabras) ─────────────────────────────
         traduccion = _traducir_corpus(texto_norm)
         if traduccion and len(texto_norm.split()) <= 2:
             es_shipibo = (
@@ -1482,23 +1633,19 @@ class ActionResponderConversacion(Action):
                 and DICCIONARIO[texto_norm] != texto_norm
                 and traduccion != texto_norm
             )
-            # Detectar repetición del mismo tipo de consulta
-            if ultima == "traduccion":
-                # No es problema, pero variamos el tono
-                pass
             if es_shipibo:
                 palabra_es = traduccion
                 palabra_shp = texto_norm
                 mensaje = self._mensaje_traduccion_corpus(
                     palabra_es, palabra_shp, es_origen_shipibo=True,
-                    incluir_curiosidad=True,
+                    incluir_curiosidad=True, ultima_respuesta=ultima_respuesta,
                 )
             else:
                 palabra_es = texto_norm
                 palabra_shp = traduccion
                 mensaje = self._mensaje_traduccion_corpus(
                     palabra_es, palabra_shp, es_origen_shipibo=False,
-                    incluir_curiosidad=True,
+                    incluir_curiosidad=True, ultima_respuesta=ultima_respuesta,
                 )
             categoria = _categoria_de_palabra(palabra_es)
             dispatcher.utter_message(
@@ -1507,32 +1654,37 @@ class ActionResponderConversacion(Action):
             )
             return self._cerrar(mensaje, "traduccion")
 
-        # ── 4. Frase del corpus conversacional ──────────────────────────────
+        # ── 5. Frase del corpus conversacional ──────────────────────────────
         if _frases_conv_disponibles():
             match = _buscar_frase_conv(texto)
             if match:
-                # Si el usuario ya hizo un saludo y vuelve a saludar → variar
+                # Si el usuario ya hizo un saludo y vuelve a saludar → variar.
                 es_saludo = match["categoria"] in ("saludo", "despedida")
                 if es_saludo and ultima == "frase":
-                    mensaje = _random.choice(_TPL_REPETICION_SALUDO)
+                    mensaje = _formatear_sin_repetir(
+                        _TPL_REPETICION_SALUDO, ultima_respuesta
+                    )
                     dispatcher.utter_message(text=mensaje, buttons=_botones_tras_saludo())
                     return self._cerrar(mensaje, "frase")
 
-                if match["idioma_detectado"] == "shp":
-                    tpl = _random.choice(_TPL_FRASE_SHP)
-                else:
-                    tpl = _random.choice(_TPL_FRASE_ES)
                 # Limpiar puntuación terminal del Excel ("Hola." → "Hola")
                 # para que las plantillas no muestren "Para decir 'Hola.' usa..."
                 es_limpio  = match["es"].rstrip(".!?¡¿")
                 shp_limpio = match["shp"].rstrip(".!?¡¿")
-                mensaje = tpl.format(es=es_limpio, shp=shp_limpio)
+
+                plantillas = (
+                    _TPL_FRASE_SHP if match["idioma_detectado"] == "shp"
+                    else _TPL_FRASE_ES
+                )
+                mensaje = _formatear_sin_repetir(
+                    plantillas, ultima_respuesta, es=es_limpio, shp=shp_limpio
+                )
 
                 botones = _botones_tras_saludo() if es_saludo else _botones_default()
                 dispatcher.utter_message(text=mensaje, buttons=botones)
                 return self._cerrar(mensaje, "frase")
 
-        # ── 5. Pregunta cultural (RAG pendiente, placeholder elegante) ──────
+        # ── 6. Pregunta cultural (RAG pendiente, placeholder elegante) ──────
         if _es_pregunta_cultural(texto):
             mensaje = (
                 "📚 Esa es una pregunta sobre cultura shipibo. Pronto voy a poder "
@@ -1542,8 +1694,8 @@ class ActionResponderConversacion(Action):
             dispatcher.utter_message(text=mensaje, buttons=_botones_default())
             return self._cerrar(mensaje, "pregunta_cultural")
 
-        # ── 6. Fallback con variabilidad ────────────────────────────────────
-        mensaje = _random.choice(_TPL_FALLBACK)
+        # ── 7. Fallback con variabilidad ────────────────────────────────────
+        mensaje = _formatear_sin_repetir(_TPL_FALLBACK, ultima_respuesta)
         dispatcher.utter_message(text=mensaje, buttons=_botones_default())
         return self._cerrar(mensaje, "fallback")
 
@@ -1555,13 +1707,19 @@ class ActionResponderConversacion(Action):
         palabra_shp: str,
         es_origen_shipibo: bool,
         incluir_curiosidad: bool = True,
+        ultima_respuesta: Optional[str] = None,
     ) -> str:
-        """Construye el mensaje de traducción con curiosidad opcional."""
-        if es_origen_shipibo:
-            tpl = _random.choice(_TPL_TRAD_SHP_A_ES)
-        else:
-            tpl = _random.choice(_TPL_TRAD_ES_A_SHP)
-        mensaje = tpl.format(es=palabra_es, shp=palabra_shp)
+        """Construye el mensaje de traducción con curiosidad opcional.
+
+        Si se pasa `ultima_respuesta`, evita devolver un mensaje idéntico
+        al último que el bot envió en este modo.
+        """
+        plantillas = (
+            _TPL_TRAD_SHP_A_ES if es_origen_shipibo else _TPL_TRAD_ES_A_SHP
+        )
+        mensaje = _formatear_sin_repetir(
+            plantillas, ultima_respuesta, es=palabra_es, shp=palabra_shp
+        )
 
         # Curiosidad cultural (~30% de las veces, si hay datos)
         if incluir_curiosidad and _curiosidades_disponibles():

@@ -230,6 +230,50 @@ def palabras_dominadas(sender_id: str, categoria: str) -> int:
         return 0
 
 
+def ultima_palabra_en_categoria(sender_id: str, categoria: str) -> Optional[str]:
+    """
+    Devuelve la última palabra (en español) practicada en una categoría dada
+    por el usuario, sin importar si la respondió correctamente o no.
+    Usada por ActionIniciarVocabulario para retomar la práctica:
+    cuando el usuario vuelve a la misma categoría, arrancamos en la palabra
+    SIGUIENTE a la última que vio (no en la primera, no en la misma).
+    """
+    try:
+        with _conn() as db:
+            row = db.execute("""
+                SELECT palabra_es FROM progreso_vocabulario
+                WHERE sender_id = ? AND categoria = ?
+                ORDER BY fecha DESC, id DESC LIMIT 1
+            """, (sender_id, categoria)).fetchone()
+        return row["palabra_es"] if row else None
+    except Exception as e:
+        logger.error("ultima_palabra_en_categoria: %s", e)
+        return None
+
+
+def ultimo_fragmento_acertado(sender_id: str, cuento_id: str) -> Optional[int]:
+    """
+    Devuelve el índice (0-based) del último fragmento del cuento que el
+    usuario respondió CORRECTAMENTE (respuesta_ok=1).
+    Devuelve None si el usuario nunca acertó ningún fragmento de ese cuento.
+
+    Usada por ActionIniciarCuento para retomar en el fragmento siguiente al
+    último acertado (no en el último que vio, que pudo ser incorrecto).
+    """
+    try:
+        with _conn() as db:
+            row = db.execute("""
+                SELECT MAX(fragmento) AS frag FROM progreso_cuento
+                WHERE sender_id = ? AND cuento_id = ? AND respuesta_ok = 1
+            """, (sender_id, cuento_id)).fetchone()
+        if row and row["frag"] is not None:
+            return int(row["frag"])
+        return None
+    except Exception as e:
+        logger.error("ultimo_fragmento_acertado: %s", e)
+        return None
+
+
 def get_resumen_categorias(sender_id: str) -> List[Dict[str, Any]]:
     """
     Resumen de progreso por categoría para 'Mi Aprendizaje'.

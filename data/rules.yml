@@ -229,6 +229,31 @@ rules:
       - intent: conversar
       - action: action_responder_conversacion
 
+  # Salidas explícitas del modo conversar hacia las otras actividades.
+  # Necesarias porque las reglas "Iniciar ... desde estado libre" piden
+  # flujo_actual: ninguno, y dentro de conversar el slot vale "conversar".
+  # Sin estas reglas, los payloads /aprender_vocabulario y /iniciar_cuento
+  # quedaban atrapados por la regla "Responder conversación libre".
+  - rule: Salir de conversar hacia vocabulario
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: conversar
+    steps:
+      - intent: aprender_vocabulario
+      - action: action_iniciar_vocabulario
+
+  - rule: Salir de conversar hacia cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: conversar
+    steps:
+      - intent: iniciar_cuento
+      - action: action_iniciar_cuento
+      - slot_was_set:
+          - flujo_actual: cuento
+
   # Cambio de modo durante una actividad: cerrar el form,
   # delegar a action_seleccionar_modo (que aplica el modo y reactiva
   # el form vía FollowupAction).
