@@ -103,8 +103,8 @@ slots:
   # Memoria de la última intención reconocida en el modo conversación.
   # Permite que el bot varíe la respuesta cuando el usuario reitera una
   # acción (ej. saludar dos veces seguidas) sin sentirse robótico.
-  # Valores: bienvenida | traduccion | frase | pregunta_cultural |
-  #          despedida | fallback
+  # Valores: bienvenida | frase | pregunta_cultural | redirigir_vocab |
+  #          escalacion | despedida | fallback
   ultima_intencion_conv:
     type: text
     influence_conversation: false

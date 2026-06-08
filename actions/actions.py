@@ -927,12 +927,9 @@ class ActionSiguienteFragmento(Action):
         total = _get_total(tracker)
         if idx >= total:
             mensaje = (
-                "Has terminado el cuento. 🌟 "
-                "Si quieres aprender vocabulario, selecciónalo en la barra lateral."
+                "Has terminado el cuento. 🌟 ¡Buen trabajo!"
             )
-            dispatcher.utter_message(text=mensaje, buttons=[
-                {"title": "Ver mi progreso",      "payload": "/ver_mi_progreso"},
-            ])
+            dispatcher.utter_message(text=mensaje)
             return [
                 SlotSet("flujo_actual", "ninguno"),
                 SlotSet("fragmento_actual", 0),
@@ -1307,26 +1304,10 @@ _PALABRAS_DESPEDIDA = {
     "kabanon", "eara jopariai", "jopariai",
 }
 
-# Plantillas para responder traducciones del corpus.
-# Diseño: todas comparten estructura y emoji estable. Solo varía la
-# formulación natural en español. Esto evita la sensación de que el bot
-# "cambia de formato" entre turnos.
-_TPL_TRAD_ES_A_SHP = [
-    "🌿 *{es}* en shipibo se dice *{shp}*.",
-    "🌿 En shipibo, *{es}* es *{shp}*.",
-    "🌿 *{es}* → *{shp}*.",
-    "🌿 Para decir *{es}* en shipibo usa *{shp}*.",
-]
-
-_TPL_TRAD_SHP_A_ES = [
-    "🔄 *{shp}* en español significa *{es}*.",
-    "🔄 En español, *{shp}* es *{es}*.",
-    "🔄 *{shp}* → *{es}*.",
-    "🔄 La palabra *{shp}* quiere decir *{es}*.",
-]
-
-# Plantillas para frases conversacionales (del loader interaccion_loader).
-# Emoji estable 💬 + misma estructura básica.
+# Plantillas para FRASES CONVERSACIONALES del loader interaccion_loader
+# (saludos, agradecer, cortesía, ayuda). Diseño: todas comparten estructura
+# y emoji estable. Solo varía la formulación natural en español. Esto evita
+# la sensación de que el bot "cambia de formato" entre turnos.
 _TPL_FRASE_SHP = [
     "💬 *{shp}* en español significa *{es}*.",
     "💬 En español, *{shp}* es *{es}*.",
@@ -1339,27 +1320,38 @@ _TPL_FRASE_ES = [
     "💬 *{es}* → *{shp}*.",
 ]
 
-# Plantillas para cuando el usuario REPITE un saludo o frase ya respondida
+# Plantilla cuando el usuario REPITE un saludo o frase ya respondida
 # (segundo turno con el MISMO tipo de consulta).
 _TPL_REPETICION_SALUDO = [
-    "Veo que vuelves a saludar 🌿. ¿Quieres que te muestre otras formas de saludar, o probamos otra cosa?",
+    "Veo que vuelves a saludar 🌿. ¿Quieres que te muestre otras formas de saludar?",
     "Otro saludo. Si quieres, te puedo mostrar despedidas o agradecimientos en shipibo.",
     "¿Probamos algo distinto? Te puedo decir cómo despedirte o agradecer en shipibo.",
 ]
 
-_TPL_REPETICION_TRAD = [
-    "Esa ya la vimos. ¿Quieres que te diga otra palabra parecida?",
-    "Bien por practicarla. Si quieres explorar más, te puedo dar otra de la misma categoría.",
+# Plantilla cuando el usuario escribe una palabra del CORPUS DE VOCABULARIO
+# dentro de Conversar conmigo. Aquí no traducimos — redirigimos al apartado
+# correcto para preservar la separación de funciones por sección.
+_TPL_REDIRIGIR_VOCABULARIO = [
+    "🌿 *{palabra}* en shipibo-konibo se relaciona con *{traduccion}*. "
+    "Esa palabra forma parte del corpus de vocabulario, "
+    "donde se trabaja con ejercicio bidireccional y pistas.",
+    "💬 *{palabra}* ↔ *{traduccion}*. "
+    "Hay un módulo dedicado al vocabulario en el menú lateral, "
+    "donde esta palabra se practica con sus variantes.",
+    "Te puedo decir que *{palabra}* corresponde a *{traduccion}*. "
+    "En el módulo de Vocabulario se trabaja a fondo con pistas y modos de práctica.",
 ]
 
 # Escalación cuando el usuario manda EXACTAMENTE el mismo texto tres veces
-# o más seguidas. Empuja a cambiar de actividad con botones concretos.
+# o más seguidas. Ofrece variantes conversacionales sin empujar a otros módulos
+# (el menú lateral del frontend está disponible si el usuario quiere cambiar).
 _TPL_ESCALACION_REPETICION = [
-    "Vi que escribiste *{texto}* varias veces. ¿Quieres probar otra cosa? "
-    "Te puedo enseñar vocabulario, iniciar un cuento o contarte algo de la cultura.",
-    "Has insistido con *{texto}*. Mejor cambiemos de tema: "
-    "te puedo llevar a vocabulario, a un cuento o a una curiosidad cultural.",
-    "Repetimos *{texto}* unas cuantas veces 🌱. ¿Te animas con vocabulario nuevo o un cuento?",
+    "Vi que escribiste *{texto}* varias veces. ¿Probamos otra cosa? "
+    "Puedo enseñarte un saludo distinto o contarte algo de la cultura shipiba.",
+    "Has repetido *{texto}* varias veces. Cambiemos un poco de aire: "
+    "te puedo mostrar otra frase conversacional o una curiosidad cultural.",
+    "Repetimos *{texto}* unas cuantas veces 🌱. "
+    "¿Te animas con un saludo distinto, una despedida, o una curiosidad cultural?",
 ]
 
 # Despedidas que el bot envía
@@ -1369,11 +1361,29 @@ _TPL_DESPEDIDA = [
     "Kabanon. Buen camino con el shipibo. 🌟",
 ]
 
-# Plantillas de fallback (cuando no se reconoce nada)
+# Plantillas de fallback (cuando no se reconoce nada).
+# IMPORTANTE: no mencionar palabras del corpus de vocabulario como ejemplo
+# para no invitar al usuario a hacer aquí lo que pertenece a otro apartado.
 _TPL_FALLBACK = [
-    "🤔 Esa no la tengo todavía. Prueba con un saludo o pedime traducir una palabra como *agua* o *jene*.",
-    "No reconozco eso. ¿Quieres que te muestre un saludo, una palabra del corpus o algo de la cultura?",
-    "Esa frase no la conozco. Te puedo ayudar con traducciones, saludos o curiosidades culturales.",
+    "🤔 No reconocí eso. Aquí me dedico a saludos, despedidas, agradecimientos y curiosidades culturales.",
+    "Esa frase no la conozco. Pruébame con un saludo en shipibo o pregúntame algo de la cultura.",
+    "No te entendí. Te puedo enseñar frases conversacionales y curiosidades de la cultura shipiba.",
+]
+
+# Plantillas para cuando el usuario expresa intención de cambiar de actividad
+# DENTRO del modo conversar (ej. "quiero aprender vocabulario", "cuéntame un
+# cuento"). El bot reconoce el deseo con naturalidad pero NO da botón de
+# salida: solo menciona que esos módulos están disponibles en el menú lateral.
+# Esto preserva el aislamiento del modo sin sentirse rígido.
+_TPL_INTENTO_CAMBIO_MODO = [
+    "🌿 Acá en Conversar trabajamos saludos, frases y temas culturales. "
+    "Si lo que buscas es eso, lo encuentras en el menú lateral. "
+    "¿Te enseño un saludo mientras tanto?",
+    "Esa actividad tiene su propio módulo en el menú lateral 🌱. "
+    "Aquí en Conversar puedo enseñarte saludos en shipibo o contarte algo "
+    "de la cultura. ¿Por dónde empezamos?",
+    "💬 Para esa práctica está su módulo en el menú lateral. "
+    "Acá podemos charlar: saludos, despedidas, frases conversacionales o cultura.",
 ]
 
 # Bienvenidas: una corta para entradas repetidas, una más rica la primera vez
@@ -1407,33 +1417,58 @@ def _es_pregunta_cultural(texto: str) -> bool:
     return primera in palabras_pregunta
 
 
+# Palabras-disparador que indican que el usuario quiere cambiar a otro módulo.
+# Lista mantenible sin necesidad de reentrenar el NLU. Se chequea ANTES del
+# fallback genérico para responder con un mensaje natural en lugar de
+# "no te entendí".
+_DISPARADORES_CAMBIO_MODO = {
+    # Vocabulario
+    "vocabulario", "vocab", "palabras", "palabra nueva",
+    "aprender palabras", "más palabras", "mas palabras",
+    "ejercicio", "ejercicios", "práctica", "practica",
+    # Cuento
+    "cuento", "cuentos", "historia", "historias", "relato", "relatos",
+    "narración", "narracion", "leer un cuento",
+}
+
+
+def _es_intento_cambio_modo(texto: str) -> bool:
+    """
+    Detecta si el usuario está pidiendo cambiar a vocabulario o cuento desde
+    dentro del modo conversar. Heurística por palabras-clave: simple, robusta
+    y mantenible sin reentrenar el NLU.
+
+    Diseño: el bot NO redirige automáticamente, solo reconoce el intento y
+    responde con naturalidad mencionando que esos módulos están en el menú
+    lateral. La salida real la decide el usuario haciendo clic en la barra.
+    """
+    if not texto:
+        return False
+    t = normalizar(texto)
+    # Match por contención: cubre "quiero vocabulario", "dame un cuento", etc.
+    return any(palabra in t for palabra in _DISPARADORES_CAMBIO_MODO)
+
+
 def _botones_default():
-    """Botones genéricos para fomentar conversación."""
+    """Botones genéricos del modo conversar.
+    Solo contienen acciones propias de esta sección: saludos, cultura y
+    despedidas. NO ofrecen rutas a otros módulos; la salida hacia
+    Vocabulario o Cuento es decisión del usuario desde el menú lateral
+    del frontend.
+    """
     return [
-        {"title": "Dime un saludo",  "payload": "Hola"},
-        {"title": "Traducime una palabra", "payload": "agua"},
+        {"title": "Dime un saludo",     "payload": "Hola"},
         {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+        {"title": "Cómo me despido",    "payload": "¿cómo me despido en shipibo?"},
     ]
 
 
-def _botones_tras_traduccion(palabra_es: str, categoria: Optional[str] = None):
-    """Botones contextuales después de traducir una palabra del corpus."""
-    btns = []
-    if categoria:
-        btns.append({
-            "title": f"Otra de {categoria}",
-            "payload": f"otra palabra de {categoria}",
-        })
-    btns.append({"title": "Dime un saludo", "payload": "Hola"})
-    btns.append({"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"})
-    return btns
-
-
 def _botones_tras_saludo():
+    """Tras un saludo respondido, ofrecer SOLO opciones conversacionales."""
     return [
-        {"title": "Otro saludo",     "payload": "Buenas tardes"},
-        {"title": "Una palabra",     "payload": "agua"},
-        {"title": "Cómo despedirme", "payload": "Hasta luego"},
+        {"title": "Otro saludo",         "payload": "Buenas tardes"},
+        {"title": "Cómo despedirme",     "payload": "Hasta luego"},
+        {"title": "Algo de la cultura",  "payload": "¿qué es el kené?"},
     ]
 
 
@@ -1444,13 +1479,16 @@ def _botones_tras_despedida():
     ]
 
 
-def _palabra_random_de_categoria(categoria: str) -> Optional[Dict[str, Any]]:
-    """Devuelve una palabra al azar de la categoría dada usando el corpus."""
-    from corpus_loader import palabras_de
-    palabras = palabras_de(categoria)
-    if not palabras:
-        return None
-    return _random.choice(palabras)
+def _botones_redirigir_vocabulario():
+    """Cuando el usuario escribe una palabra del corpus de vocabulario.
+    Solo opciones conversacionales: el frontend ya tiene el menú lateral
+    para que el usuario decida si quiere cambiar al módulo de Vocabulario.
+    """
+    return [
+        {"title": "Dame un saludo",     "payload": "Hola"},
+        {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+        {"title": "Cómo me despido",    "payload": "¿cómo me despido en shipibo?"},
+    ]
 
 
 def _categoria_de_palabra(palabra_es: str) -> Optional[str]:
@@ -1461,6 +1499,32 @@ def _categoria_de_palabra(palabra_es: str) -> Optional[str]:
         for p in palabras:
             if p["es"].lower() == palabra_es or p["shp"].lower() == palabra_es:
                 return cat
+    return None
+
+
+def _buscar_curiosidad_en_texto(texto: str) -> Optional[Dict[str, str]]:
+    """
+    Escanea el texto del usuario buscando palabras del corpus que tengan
+    una curiosidad cultural asociada. Devuelve la primera encontrada, o None.
+
+    Esta función es el reemplazo provisional del RAG en preguntas culturales:
+    si el usuario pregunta "¿qué es el río en la cultura shipiba?", buscamos
+    *río* en el índice de curiosidades. Cuando el RAG real esté disponible,
+    esta función se sustituye por una llamada al retriever sin tocar el run().
+    """
+    if not _curiosidades_disponibles():
+        return None
+    try:
+        from curiosidades_loader import CURIOSIDADES
+    except ImportError:
+        return None
+    texto_norm = normalizar(texto)
+    tokens = set(texto_norm.split())
+    for palabra, opciones in CURIOSIDADES.items():
+        if not opciones:
+            continue
+        if palabra in tokens or palabra in texto_norm:
+            return _random.choice(opciones)
     return None
 
 
@@ -1477,7 +1541,7 @@ def _formatear_sin_repetir(
 
     Necesario porque `random.choice` puro puede elegir la misma plantilla
     dos turnos seguidos, lo que se siente robótico cuando el usuario manda
-    el mismo input dos veces (ej: "Buenas tardes" -> misma respuesta literal).
+    el mismo input dos veces.
     """
     if not plantillas:
         return ""
@@ -1490,7 +1554,6 @@ def _formatear_sin_repetir(
             continue
         if mensaje != (ultima_respuesta or ""):
             return mensaje
-    # Si todas las opciones coinciden con la última (improbable), devolver una.
     return plantillas[0].format(**kwargs)
 
 
@@ -1515,8 +1578,6 @@ def _veces_repetido_input(tracker, texto_norm: str, max_check: int = 6) -> int:
     Cuenta cuántos turnos user CONSECUTIVOS (incluyendo el actual) coinciden
     con texto_norm. Se mira hacia atrás hasta encontrar un turno distinto
     o agotar max_check.
-
-    Devuelve 1 si solo coincide el actual, 2 si el actual + el anterior, etc.
     """
     if not texto_norm:
         return 0
@@ -1534,11 +1595,15 @@ def _veces_repetido_input(tracker, texto_norm: str, max_check: int = 6) -> int:
 
 
 def _botones_escalacion():
-    """Botones que ofrece la escalación tras 3+ repeticiones del mismo input."""
+    """Botones que ofrece la escalación tras 3+ repeticiones del mismo input.
+    Solo opciones conversacionales para romper el bucle sin forzar al usuario
+    a cambiar de módulo (el menú lateral del frontend está disponible si lo
+    desea).
+    """
     return [
-        {"title": "Aprender vocabulario", "payload": "/aprender_vocabulario"},
-        {"title": "Quiero un cuento",     "payload": "/iniciar_cuento"},
-        {"title": "Algo de cultura",      "payload": "¿qué es el kené?"},
+        {"title": "Otro saludo",        "payload": "Buenas tardes"},
+        {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+        {"title": "Despedirme",         "payload": "¿cómo me despido en shipibo?"},
     ]
 
 
@@ -1587,8 +1652,7 @@ class ActionResponderConversacion(Action):
         ultima_respuesta = tracker.get_slot("ultima_respuesta_bot") or ""
 
         # ── 1. Despedida ────────────────────────────────────────────────────
-        # Tiene precedencia incluso sobre la escalación: si el usuario quiere
-        # cerrar, lo dejamos cerrar.
+        # Tiene precedencia incluso sobre escalación: si quiere cerrar, cerramos.
         if _es_despedida(texto):
             mensaje = _formatear_sin_repetir(_TPL_DESPEDIDA, ultima_respuesta)
             dispatcher.utter_message(text=mensaje, buttons=_botones_tras_despedida())
@@ -1606,55 +1670,23 @@ class ActionResponderConversacion(Action):
             dispatcher.utter_message(text=mensaje, buttons=_botones_escalacion())
             return self._cerrar(mensaje, "escalacion")
 
-        # ── 3. "Otra palabra de X" — pedido explícito de palabra aleatoria ──
-        m_cat = _re.search(
-            r"otra\s+palabra\s+(?:de\s+)?(naturaleza|animales|cuerpo|colores|objetos|n[uú]meros)",
-            texto.lower()
-        )
-        if m_cat:
-            categoria = m_cat.group(1)
-            palabra = _palabra_random_de_categoria(categoria)
-            if palabra:
-                mensaje = self._mensaje_traduccion_corpus(
-                    palabra["es"], palabra["shp"], es_origen_shipibo=False,
-                    incluir_curiosidad=True, ultima_respuesta=ultima_respuesta,
-                )
-                dispatcher.utter_message(
-                    text=mensaje,
-                    buttons=_botones_tras_traduccion(palabra["es"], categoria),
-                )
-                return self._cerrar(mensaje, "traduccion")
-
-        # ── 4. Palabra del corpus (54 palabras) ─────────────────────────────
+        # ── 3. PALABRA DEL CORPUS DE VOCABULARIO → respuesta natural ────────
+        # Aislamiento de funciones suave: las palabras del corpus de vocabulario
+        # se practican en el módulo Aprender Vocabulario, pero aquí en Conversar
+        # respondemos la traducción directamente y mencionamos el módulo SIN
+        # botón de salida. El usuario decide si quiere cambiar desde el menú
+        # lateral del frontend.
         traduccion = _traducir_corpus(texto_norm)
         if traduccion and len(texto_norm.split()) <= 2:
-            es_shipibo = (
-                texto_norm in DICCIONARIO
-                and DICCIONARIO[texto_norm] != texto_norm
-                and traduccion != texto_norm
+            palabra_mostrada = texto.strip()
+            mensaje = _formatear_sin_repetir(
+                _TPL_REDIRIGIR_VOCABULARIO, ultima_respuesta,
+                palabra=palabra_mostrada, traduccion=traduccion,
             )
-            if es_shipibo:
-                palabra_es = traduccion
-                palabra_shp = texto_norm
-                mensaje = self._mensaje_traduccion_corpus(
-                    palabra_es, palabra_shp, es_origen_shipibo=True,
-                    incluir_curiosidad=True, ultima_respuesta=ultima_respuesta,
-                )
-            else:
-                palabra_es = texto_norm
-                palabra_shp = traduccion
-                mensaje = self._mensaje_traduccion_corpus(
-                    palabra_es, palabra_shp, es_origen_shipibo=False,
-                    incluir_curiosidad=True, ultima_respuesta=ultima_respuesta,
-                )
-            categoria = _categoria_de_palabra(palabra_es)
-            dispatcher.utter_message(
-                text=mensaje,
-                buttons=_botones_tras_traduccion(palabra_es, categoria),
-            )
-            return self._cerrar(mensaje, "traduccion")
+            dispatcher.utter_message(text=mensaje, buttons=_botones_redirigir_vocabulario())
+            return self._cerrar(mensaje, "redirigir_vocab")
 
-        # ── 5. Frase del corpus conversacional ──────────────────────────────
+        # ── 4. Frase del corpus conversacional (saludos, agradecer, etc.) ──
         if _frases_conv_disponibles():
             match = _buscar_frase_conv(texto)
             if match:
@@ -1667,8 +1699,6 @@ class ActionResponderConversacion(Action):
                     dispatcher.utter_message(text=mensaje, buttons=_botones_tras_saludo())
                     return self._cerrar(mensaje, "frase")
 
-                # Limpiar puntuación terminal del Excel ("Hola." → "Hola")
-                # para que las plantillas no muestren "Para decir 'Hola.' usa..."
                 es_limpio  = match["es"].rstrip(".!?¡¿")
                 shp_limpio = match["shp"].rstrip(".!?¡¿")
 
@@ -1684,15 +1714,34 @@ class ActionResponderConversacion(Action):
                 dispatcher.utter_message(text=mensaje, buttons=botones)
                 return self._cerrar(mensaje, "frase")
 
-        # ── 6. Pregunta cultural (RAG pendiente, placeholder elegante) ──────
+        # ── 5. Pregunta cultural ────────────────────────────────────────────
+        # Primero intentamos servir una curiosidad cultural ya curada si el
+        # texto contiene palabras conocidas. Si no, placeholder honesto del
+        # futuro RAG. Las curiosidades pertenecen a CONVERSAR, no a Vocab.
         if _es_pregunta_cultural(texto):
-            mensaje = (
-                "📚 Esa es una pregunta sobre cultura shipibo. Pronto voy a poder "
-                "buscar respuestas en documentos culturales. Mientras tanto, "
-                "te puedo enseñar palabras o saludos."
-            )
+            cur = _buscar_curiosidad_en_texto(texto)
+            if cur:
+                mensaje = f"💡 _{cur['texto']}_"
+                if cur.get("fuente"):
+                    mensaje += f"\n\n_Fuente: {cur['fuente']}_"
+            else:
+                mensaje = (
+                    "📚 Esa es una pregunta sobre cultura shipiba. Por ahora "
+                    "no tengo información específica sobre eso en mis fuentes; "
+                    "pronto podré buscar en documentos culturales."
+                )
             dispatcher.utter_message(text=mensaje, buttons=_botones_default())
             return self._cerrar(mensaje, "pregunta_cultural")
+
+        # ── 6. Intento de cambio de modo (opción B sin NLU adicional) ───────
+        # Si el usuario expresa querer hacer otra actividad (vocabulario o
+        # cuento) DENTRO del modo conversar, no caemos en fallback genérico:
+        # reconocemos el intento y le recordamos que esos módulos están en el
+        # menú lateral del frontend. Sin botón de salida — la decisión es suya.
+        if _es_intento_cambio_modo(texto):
+            mensaje = _formatear_sin_repetir(_TPL_INTENTO_CAMBIO_MODO, ultima_respuesta)
+            dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+            return self._cerrar(mensaje, "intento_cambio_modo")
 
         # ── 7. Fallback con variabilidad ────────────────────────────────────
         mensaje = _formatear_sin_repetir(_TPL_FALLBACK, ultima_respuesta)
@@ -1700,33 +1749,6 @@ class ActionResponderConversacion(Action):
         return self._cerrar(mensaje, "fallback")
 
     # ── Helpers internos ──────────────────────────────────────────────────
-
-    def _mensaje_traduccion_corpus(
-        self,
-        palabra_es: str,
-        palabra_shp: str,
-        es_origen_shipibo: bool,
-        incluir_curiosidad: bool = True,
-        ultima_respuesta: Optional[str] = None,
-    ) -> str:
-        """Construye el mensaje de traducción con curiosidad opcional.
-
-        Si se pasa `ultima_respuesta`, evita devolver un mensaje idéntico
-        al último que el bot envió en este modo.
-        """
-        plantillas = (
-            _TPL_TRAD_SHP_A_ES if es_origen_shipibo else _TPL_TRAD_ES_A_SHP
-        )
-        mensaje = _formatear_sin_repetir(
-            plantillas, ultima_respuesta, es=palabra_es, shp=palabra_shp
-        )
-
-        # Curiosidad cultural (~30% de las veces, si hay datos)
-        if incluir_curiosidad and _curiosidades_disponibles():
-            cur = _obtener_curiosidad(palabra_es)
-            if cur:
-                mensaje += f"\n\n💡 _{cur['texto']}_"
-        return mensaje
 
     def _bienvenida(self, dispatcher, tracker) -> List[EventType]:
         """Mensaje al entrar al modo conversación."""
