@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 CUENTOS_PATH = os.path.join(os.path.dirname(__file__), "corpus", "cuentos.xlsx")
 
 # Cuento que se ofrece por defecto cuando el usuario solo dice "quiero un cuento"
-CUENTO_PREDETERMINADO = "pescador_shipibo"
+CUENTO_PREDETERMINADO = "motelo_tigre"
 
 
 def _normalizar(s: Any) -> str:
@@ -44,9 +44,9 @@ def _cargar_desde_excel(path: str) -> Dict[str, Dict[str, Any]]:
     """
     Lee el Excel y devuelve:
     {
-      "pescador_shipibo": {
-        "id":      "pescador_shipibo",
-        "titulo":  "El pescador shipibo",
+      "motelo_tigre": {
+        "id":      "motelo_tigre",
+        "titulo":  "El motelo del tigre",
         "fragmentos": [
           {"orden": 1, "texto": "...", "pregunta": "...",
            "respuesta_esperada": "jene", "ayuda": "..."},
