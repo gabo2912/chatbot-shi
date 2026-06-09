@@ -92,6 +92,27 @@ except Exception as _cur_err:
     def _curiosidades_disponibles():
         return False
 
+# Import resiliente del cliente HTTP del servicio RAG independiente.
+# El servicio RAG vive en otro proyecto (rag-service/) con su propio venv,
+# eso permite usar LangChain + pydantic 2 sin chocar con Rasa 3.6 (pydantic 1).
+# Si el servicio no está corriendo o no es alcanzable, los stubs devuelven
+# None/False y el bot cae al placeholder textual del bloque 5.
+try:
+    from rag_client import (
+        responder_cultural_simple as _rag_responder,
+        rag_disponible as _rag_disponible,
+    )
+except Exception as _rag_err:
+    import logging as _log_rag
+    _log_rag.getLogger(__name__).warning(
+        "rag_client no disponible (%s). El bot funcionará sin RAG cultural.",
+        _rag_err
+    )
+    def _rag_responder(query):
+        return None
+    def _rag_disponible():
+        return False
+
 import random as _random
 
 
@@ -1715,21 +1736,33 @@ class ActionResponderConversacion(Action):
                 return self._cerrar(mensaje, "frase")
 
         # ── 5. Pregunta cultural ────────────────────────────────────────────
-        # Primero intentamos servir una curiosidad cultural ya curada si el
-        # texto contiene palabras conocidas. Si no, placeholder honesto del
-        # futuro RAG. Las curiosidades pertenecen a CONVERSAR, no a Vocab.
+        # Búsqueda en cascada (orden de calidad): primero la curaduría manual
+        # (texto pulido y corto), después el RAG sobre el PDF (cobertura total
+        # pero párrafos más largos), y al final un placeholder honesto si nada
+        # responde con suficiente relevancia.
         if _es_pregunta_cultural(texto):
+            # 5a) Curiosidad curada a mano (mayor calidad textual)
             cur = _buscar_curiosidad_en_texto(texto)
             if cur:
                 mensaje = f"💡 _{cur['texto']}_"
                 if cur.get("fuente"):
                     mensaje += f"\n\n_Fuente: {cur['fuente']}_"
-            else:
-                mensaje = (
-                    "📚 Esa es una pregunta sobre cultura shipiba. Por ahora "
-                    "no tengo información específica sobre eso en mis fuentes; "
-                    "pronto podré buscar en documentos culturales."
-                )
+                dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+                return self._cerrar(mensaje, "pregunta_cultural")
+
+            # 5b) RAG sobre PDF de cosmovisión (cobertura completa del documento)
+            if _rag_disponible():
+                respuesta_rag = _rag_responder(texto)
+                if respuesta_rag:
+                    dispatcher.utter_message(text=respuesta_rag, buttons=_botones_default())
+                    return self._cerrar(respuesta_rag, "pregunta_cultural")
+
+            # 5c) Fallback honesto: ni curaduría ni RAG dieron respuesta relevante
+            mensaje = (
+                "📚 Esa es una pregunta sobre cultura shipiba interesante, "
+                "pero no encontré información específica sobre eso en mis fuentes. "
+                "Puedo enseñarte saludos en shipibo o contarte sobre otros temas culturales."
+            )
             dispatcher.utter_message(text=mensaje, buttons=_botones_default())
             return self._cerrar(mensaje, "pregunta_cultural")
 
