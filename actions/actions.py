@@ -58,6 +58,7 @@ try:
         buscar_frase as _buscar_frase_conv,
         frases_ejemplo as _frases_ejemplo,
         frases_disponibles as _frases_conv_disponibles,
+        frases_por_categoria as _frases_por_categoria,
     )
 except Exception as _int_err:
     import logging as _log_int
@@ -71,6 +72,8 @@ except Exception as _int_err:
         return []
     def _frases_conv_disponibles():
         return False
+    def _frases_por_categoria(categoria):
+        return []
 
 # Import resiliente del loader de curiosidades culturales.
 # Si el archivo curiosidades_loader.py no está disponible (por ejemplo,
@@ -1428,14 +1431,111 @@ def _es_despedida(texto: str) -> bool:
 
 
 def _es_pregunta_cultural(texto: str) -> bool:
-    """Heurística para detectar consultas culturales."""
+    """Heurística para detectar consultas culturales.
+
+    Distingue una consulta cultural (que va al RAG / curiosidades) de:
+      • Preguntas meta-lingüísticas ("cómo se dice", "cómo me despido") — esas
+        se responden con el corpus de frases, NO con el RAG cultural.
+      • Saludos en forma de pregunta ("¿cómo estás?") — esos se responden como
+        frase conversacional, no como pregunta cultural.
+    """
     t = texto.lower().strip()
+
+    # Si es claramente una pregunta meta-lingüística sobre cómo decir algo,
+    # NO es cultural. La responde el detector meta-lingüístico (bloque 4.5).
+    if _detectar_pregunta_metalinguistica(t) is not None:
+        return False
+
+    # Saludos/cortesía en forma de pregunta ("¿cómo estás?") tampoco son
+    # culturales — son frases conversacionales que ya están en el corpus.
+    saludos_pregunta = {
+        "cómo estás", "como estas", "qué tal", "que tal",
+        "cómo está", "como esta", "cómo van", "como van",
+    }
+    if any(s in t for s in saludos_pregunta):
+        return False
+
+    # Detección positiva normal: tiene signos de pregunta o empieza con
+    # palabra interrogativa.
     if "?" in t or "¿" in t:
         return True
     palabras_pregunta = {"qué", "que", "cómo", "como", "por", "dónde", "donde",
-                         "cuál", "cual", "explícame", "explicame", "cuéntame", "cuéntame"}
+                         "cuál", "cual", "explícame", "explicame",
+                         "cuéntame", "cuentame", "háblame", "hablame"}
     primera = t.split()[0] if t.split() else ""
     return primera in palabras_pregunta
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Preguntas culturales rotativas
+# ─────────────────────────────────────────────────────────────────────────────
+# Lista de preguntas variadas para el botón "Algo de la cultura". Cada vez que
+# se construye el botón se elige una al azar, así el usuario obtiene contenido
+# diverso del PDF de cosmovisión en lugar del mismo chunk siempre.
+_PREGUNTAS_CULTURALES = [
+    "¿qué es el kené?",
+    "cuéntame sobre la ayahuasca",
+    "¿quién es Ronin?",
+    "explícame la cosmovisión shipiba",
+    "¿qué son los icaros?",
+    "háblame de los espíritus del agua",
+    "¿qué significa onanya?",
+    "cuéntame sobre el río Ucayali",
+]
+
+
+def _pregunta_cultural_aleatoria() -> str:
+    """Devuelve una pregunta cultural al azar de la lista variada."""
+    return _random.choice(_PREGUNTAS_CULTURALES)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Detector meta-lingüístico: "cómo me despido", "cómo saludo", etc.
+# ─────────────────────────────────────────────────────────────────────────────
+# Si el usuario pregunta CÓMO decir algo (despedirse, saludar, agradecer...),
+# no es una pregunta cultural sino una consulta sobre el idioma. La respuesta
+# debe venir del corpus de frases conversacionales, no del PDF de cosmovisión.
+#
+# Mapa: lista de palabras-clave → categoría del corpus que las responde.
+# La categoría debe coincidir con las del Excel frases_conversacionales.xlsx.
+_MAPEO_METALINGUISTICO = [
+    # (palabras_clave, categoría_corpus, plantilla_intro)
+    (("despedir", "despido", "despedida", "decir adiós", "decir adios"),
+     "despedida",
+     "Para despedirte en shipibo se dice"),
+    (("saludar", "saludo", "saludos", "decir hola"),
+     "saludo",
+     "Para saludar en shipibo se dice"),
+    (("agradecer", "agradezco", "decir gracias", "gracias"),
+     "agradecer",
+     "Para agradecer en shipibo se dice"),
+    (("disculpar", "disculparse", "pedir disculpa", "pedir disculpas"),
+     "disculpa",
+     "Para disculparte en shipibo se dice"),
+    (("pedir ayuda", "ayudar"),
+     "ayuda",
+     "Para pedir ayuda en shipibo se dice"),
+    (("presentar", "presentarme", "soy", "mi nombre"),
+     "identidad",
+     "Para presentarte en shipibo se dice"),
+]
+
+
+def _detectar_pregunta_metalinguistica(texto: str):
+    """
+    Detecta si el usuario está preguntando 'cómo se dice X' o 'cómo me despido'
+    y devuelve la categoría del corpus que responde, o None si no aplica.
+
+    Returns:
+        (categoria, plantilla_intro) si es meta-lingüística, None si no lo es.
+    """
+    t = texto.lower().strip() if texto else ""
+    if not t:
+        return None
+    for palabras_clave, categoria, plantilla in _MAPEO_METALINGUISTICO:
+        if any(p in t for p in palabras_clave):
+            return (categoria, plantilla)
+    return None
 
 
 # Palabras-disparador que indican que el usuario quiere cambiar a otro módulo.
@@ -1479,7 +1579,7 @@ def _botones_default():
     """
     return [
         {"title": "Dime un saludo",     "payload": "Hola"},
-        {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+        {"title": "Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
         {"title": "Cómo me despido",    "payload": "¿cómo me despido en shipibo?"},
     ]
 
@@ -1489,7 +1589,7 @@ def _botones_tras_saludo():
     return [
         {"title": "Otro saludo",         "payload": "Buenas tardes"},
         {"title": "Cómo despedirme",     "payload": "Hasta luego"},
-        {"title": "Algo de la cultura",  "payload": "¿qué es el kené?"},
+        {"title": "Algo de la cultura",  "payload": _pregunta_cultural_aleatoria()},
     ]
 
 
@@ -1507,7 +1607,7 @@ def _botones_redirigir_vocabulario():
     """
     return [
         {"title": "Dame un saludo",     "payload": "Hola"},
-        {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+        {"title": "Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
         {"title": "Cómo me despido",    "payload": "¿cómo me despido en shipibo?"},
     ]
 
@@ -1623,7 +1723,7 @@ def _botones_escalacion():
     """
     return [
         {"title": "Otro saludo",        "payload": "Buenas tardes"},
-        {"title": "Algo de la cultura", "payload": "¿qué es el kené?"},
+        {"title": "Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
         {"title": "Despedirme",         "payload": "¿cómo me despido en shipibo?"},
     ]
 
@@ -1734,6 +1834,34 @@ class ActionResponderConversacion(Action):
                 botones = _botones_tras_saludo() if es_saludo else _botones_default()
                 dispatcher.utter_message(text=mensaje, buttons=botones)
                 return self._cerrar(mensaje, "frase")
+
+        # ── 4.5. Pregunta meta-lingüística ───────────────────────────────────
+        # "¿cómo me despido?", "¿cómo saludo?", "¿cómo digo gracias?", etc.
+        # Estas NO van al RAG cultural sino al corpus de frases conversacionales.
+        # Devolvemos una frase aleatoria de la categoría correspondiente, con
+        # un marco textual que explique la traducción.
+        meta = _detectar_pregunta_metalinguistica(texto)
+        if meta is not None:
+            categoria, intro = meta
+            frases_cat = _frases_por_categoria(categoria)
+            if frases_cat:
+                frase = _random.choice(frases_cat)
+                es_limpio  = frase["es"].rstrip(".!?¡¿")
+                shp_limpio = frase["shp"].rstrip(".!?¡¿")
+                mensaje = (
+                    f"💬 {intro} **{shp_limpio}**, "
+                    f"que en español significa _{es_limpio}_."
+                )
+                dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+                return self._cerrar(mensaje, "meta_linguistica")
+            # Si el corpus no tiene esa categoría (raro), caemos al placeholder
+            # honesto en lugar de mandar al RAG cultural.
+            mensaje = (
+                f"💬 Aún no tengo frases de esa categoría en mi corpus, "
+                f"pero te puedo enseñar saludos, agradecimientos o despedidas."
+            )
+            dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+            return self._cerrar(mensaje, "meta_linguistica")
 
         # ── 5. Pregunta cultural ────────────────────────────────────────────
         # Búsqueda en cascada (orden de calidad): primero la curaduría manual

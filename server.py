@@ -6,6 +6,7 @@ Endpoints:
   GET  /status                    → estado de Rasa
   GET  /progreso/<sender_id>      → progreso del usuario desde la DB (JSON)
   GET  /cuentos/<sender_id>       → catálogo de cuentos + progreso (JSON)
+  POST /login                     → valida código de acceso y activa al usuario
   POST /webhooks/rest/webhook     → proxy a Rasa
 
 Uso:
@@ -15,10 +16,30 @@ Uso:
 import json
 import mimetypes
 import sqlite3
+import sys
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+
+# ── Import resiliente del módulo db.py de actions/ ───────────────────────────
+# Se usa para validar y activar códigos de acceso en el endpoint /login.
+# Si falla la importación, el servidor sigue funcionando pero /login responde
+# con error (útil en entornos donde no se quiere autenticación, ej. dev local
+# sin migración a códigos).
+_actions_path = Path(__file__).parent / "actions"
+if str(_actions_path) not in sys.path:
+    sys.path.insert(0, str(_actions_path))
+
+try:
+    from db import validar_codigo, activar_codigo, info_usuario
+    _DB_DISPONIBLE = True
+except Exception as _db_err:
+    print(f"[proxy] WARN: db.py no disponible ({_db_err}); /login no funcionará")
+    _DB_DISPONIBLE = False
+    def validar_codigo(c): return False
+    def activar_codigo(c, nombre=None): return False
+    def info_usuario(c): return None
 
 RASA_WEBHOOK = "http://localhost:5005/webhooks/rest/webhook"
 RASA_STATUS  = "http://localhost:5005/status"
@@ -378,6 +399,52 @@ class PishicoProxy(BaseHTTPRequestHandler):
             self._error(404, "Ruta no encontrada")
 
     def do_POST(self):
+        # ── Login: valida y activa código de acceso ─────────────────────────
+        if self.path == "/login":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                body = self.rfile.read(length) if length else b"{}"
+                data = json.loads(body)
+            except Exception:
+                self._json(400, {"ok": False, "error": "JSON inválido"})
+                return
+
+            codigo = (data.get("codigo") or "").strip()
+            nombre = (data.get("nombre") or "").strip() or None
+
+            if not codigo:
+                self._json(400, {"ok": False, "error": "Falta el código de acceso"})
+                return
+
+            if not _DB_DISPONIBLE:
+                self._json(503, {"ok": False, "error": "Base de datos no disponible"})
+                return
+
+            if not validar_codigo(codigo):
+                self._json(404, {
+                    "ok": False,
+                    "error": "Código no reconocido. Verifica con tu investigador.",
+                })
+                return
+
+            # Detectar si es primer acceso ANTES de activar (para reporte al frontend)
+            info_previa = info_usuario(codigo) or {}
+            primera_vez = info_previa.get("fecha_primer_acceso") is None
+
+            if not activar_codigo(codigo, nombre=nombre):
+                self._json(500, {"ok": False, "error": "Error al activar el código"})
+                return
+
+            info_actual = info_usuario(codigo) or {}
+            self._json(200, {
+                "ok": True,
+                "codigo_acceso": info_actual.get("codigo_acceso"),
+                "nombre":        info_actual.get("nombre"),
+                "primera_vez":   primera_vez,
+            })
+            return
+
+        # ── Webhook Rasa: proxy transparente ───────────────────────────────
         if "/webhooks/rest/webhook" not in self.path:
             self._error(404, "Ruta no encontrada")
             return

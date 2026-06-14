@@ -1,0 +1,27 @@
+# ───────────────────────────────────────────────────────────────
+# Dependencias adicionales del Hito 1 (gestión de usuarios + RDS)
+# ───────────────────────────────────────────────────────────────
+#
+# Estas se AGREGAN al venv existente de Rasa (no reemplazan nada).
+# NO incluye Rasa ni el resto del stack (ya están instalados).
+#
+# Instalación:
+#   source venv/bin/activate
+#   pip install -r requirements_hito1.txt
+#
+# Verificación:
+#   rasa --version    # debe seguir funcionando
+#
+# ───────────────────────────────────────────────────────────────
+
+# ORM para abstraer SQLite/PostgreSQL.
+# SQLAlchemy 1.4.x es compatible con pydantic 1 (Rasa 3.6).
+# La rama 2.x también funciona pero es más moderna.
+SQLAlchemy>=1.4,<2.1
+
+# Driver de PostgreSQL (binary trae las libs compiladas, no requiere
+# instalar libpq-dev en el sistema).
+psycopg2-binary>=2.9
+
+# Carga de variables desde archivo .env
+python-dotenv>=1.0
