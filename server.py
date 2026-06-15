@@ -164,108 +164,32 @@ def _db_path():
 
 def _leer_progreso(sender_id: str):
     """
-    Lee la DB y devuelve progreso por categoría y por cuento, incluyendo
-    desglose por nivel pedagógico (Capa 3 de la matriz):
-      • nivel 2: lo logra al primer intento
-      • nivel 1: lo logra con esfuerzo (varios intentos)
-      • nivel 0: no lo logra (agotó intentos)
+    Lee progreso por categoría y cuento usando db.py (RDS).
+    Reemplaza la lectura directa de SQLite local (legacy).
     """
-    db = _db_path()
-    if not db:
-        return {"error": "DB no encontrada", "categorias": [], "cuentos": []}
+    if not _DB_DISPONIBLE:
+        return {"error": "DB no disponible", "categorias": [], "cuentos": []}
 
-    conn = sqlite3.connect(str(db))
-    conn.row_factory = sqlite3.Row
     try:
-        # ── Resumen base por categoría ───────────────────────────────────
-        cats_data = conn.execute("""
-            SELECT
-                categoria,
-                COUNT(DISTINCT CASE WHEN resultado='correcto' THEN palabra_es END) AS dominadas,
-                COUNT(DISTINCT palabra_es) AS vistas
-            FROM progreso_vocabulario
-            WHERE sender_id = ?
-            GROUP BY categoria
-        """, (sender_id,)).fetchall()
+        # db.py ya tiene la lógica completa con queries portables a PostgreSQL
+        from db import get_resumen_categorias, get_resumen_cuento
 
-        # ── Desglose por nivel (toma el MEJOR nivel alcanzado por palabra) ─
-        niveles_data = conn.execute("""
-            SELECT
-                categoria,
-                SUM(CASE WHEN max_nivel=2 THEN 1 ELSE 0 END) AS nivel_2,
-                SUM(CASE WHEN max_nivel=1 THEN 1 ELSE 0 END) AS nivel_1,
-                SUM(CASE WHEN max_nivel=0 THEN 1 ELSE 0 END) AS nivel_0
-            FROM (
-                SELECT categoria, palabra_es, MAX(nivel) AS max_nivel
-                FROM progreso_vocabulario
-                WHERE sender_id = ?
-                GROUP BY categoria, palabra_es
-            )
-            GROUP BY categoria
-        """, (sender_id,)).fetchall()
+        categorias = get_resumen_categorias(sender_id)
+        cuentos_brutos = get_resumen_cuento(sender_id)
 
-        visto    = {r["categoria"]: r for r in cats_data}
-        niveles  = {r["categoria"]: r for r in niveles_data}
-
-        categorias = []
-        for cat in TOTAL_PALABRAS.keys():
-            r = visto.get(cat)
-            n = niveles.get(cat)
-            dom = r["dominadas"] if r else 0
-            total = TOTAL_PALABRAS.get(cat, 0)
-            categorias.append({
-                "categoria":  cat,
-                "emoji":      EMOJI_CAT.get(cat, "📚"),
-                "dominadas":  dom,
-                "total":      total,
-                "porcentaje": round(dom / total * 100) if total else 0,
-                "niveles": {
-                    "2": (n["nivel_2"] if n else 0) or 0,
-                    "1": (n["nivel_1"] if n else 0) or 0,
-                    "0": (n["nivel_0"] if n else 0) or 0,
-                },
-            })
-
-        # ── Resumen base por cuento ──────────────────────────────────────
-        cuentos_data = conn.execute("""
-            SELECT cuento_id, COUNT(DISTINCT fragmento) AS completados
-            FROM progreso_cuento WHERE sender_id = ? GROUP BY cuento_id
-        """, (sender_id,)).fetchall()
-
-        # ── Desglose por nivel para cuentos ──────────────────────────────
-        cuento_niveles = conn.execute("""
-            SELECT
-                cuento_id,
-                SUM(CASE WHEN max_nivel=2 THEN 1 ELSE 0 END) AS nivel_2,
-                SUM(CASE WHEN max_nivel=1 THEN 1 ELSE 0 END) AS nivel_1,
-                SUM(CASE WHEN max_nivel=0 THEN 1 ELSE 0 END) AS nivel_0
-            FROM (
-                SELECT cuento_id, fragmento, MAX(nivel) AS max_nivel
-                FROM progreso_cuento
-                WHERE sender_id = ?
-                GROUP BY cuento_id, fragmento
-            )
-            GROUP BY cuento_id
-        """, (sender_id,)).fetchall()
-        nivc = {r["cuento_id"]: r for r in cuento_niveles}
-
+        # Renombrar campo "completados" si viene como "correctas" en algunas funciones
         cuentos = []
-        for r in cuentos_data:
-            cid = r["cuento_id"]
-            n = nivc.get(cid)
+        for c in cuentos_brutos:
             cuentos.append({
-                "cuento_id":   cid,
-                "completados": r["completados"],
-                "niveles": {
-                    "2": (n["nivel_2"] if n else 0) or 0,
-                    "1": (n["nivel_1"] if n else 0) or 0,
-                    "0": (n["nivel_0"] if n else 0) or 0,
-                },
+                "cuento_id":   c.get("cuento_id"),
+                "completados": c.get("completados", 0),
+                "niveles":     c.get("niveles", {"2": 0, "1": 0, "0": 0}),
             })
 
         return {"categorias": categorias, "cuentos": cuentos}
-    finally:
-        conn.close()
+    except Exception as e:
+        print(f"[proxy] ERROR _leer_progreso: {e}")
+        return {"error": str(e), "categorias": [], "cuentos": []}
 
 
 def _cuentos_xlsx_path():
@@ -313,20 +237,15 @@ def _leer_cuentos(sender_id: str):
             cuentos_raw[cuento_id]["palabras"].append(respuesta_esp)
     wb.close()
 
-    # Leer progreso por cuento desde la DB
+    # Leer progreso por cuento desde RDS via db.py
     progreso = {}
-    db = _db_path()
-    if db:
-        conn = sqlite3.connect(str(db))
-        conn.row_factory = sqlite3.Row
+    if _DB_DISPONIBLE:
         try:
-            rows = conn.execute("""
-                SELECT cuento_id, COUNT(DISTINCT fragmento) AS completados
-                FROM progreso_cuento WHERE sender_id = ? GROUP BY cuento_id
-            """, (sender_id,)).fetchall()
-            progreso = {r["cuento_id"]: r["completados"] for r in rows}
-        finally:
-            conn.close()
+            from db import get_resumen_cuento
+            resumen = get_resumen_cuento(sender_id)
+            progreso = {r["cuento_id"]: r["completados"] for r in resumen}
+        except Exception as e:
+            print(f"[proxy] WARN _leer_cuentos: {e}")
 
     # Combinar metadatos
     resultado = []
@@ -495,16 +414,28 @@ def main():
         print(f"⚠️  No se encontró {HTML_FILE}")
         return
 
-    db = _db_path()
+    # Mostrar la URL de la BD que está usando db.py (RDS o SQLite según .env)
+    db_info = "(no disponible)"
+    if _DB_DISPONIBLE:
+        try:
+            from db import DATABASE_URL
+            # Ocultar la password en la salida (formato user:pwd@host)
+            if "@" in DATABASE_URL:
+                db_info = DATABASE_URL.split("@", 1)[1]
+            else:
+                db_info = DATABASE_URL
+        except Exception:
+            db_info = "(error leyendo URL)"
+
     print("=" * 52)
     print("  Pishico Bot — Servidor frontend")
     print("=" * 52)
-    print(f"  Frontend : http://localhost:{PORT}")
+    print(f"  Frontend : http://0.0.0.0:{PORT}")
     print(f"  Rasa API : {RASA_WEBHOOK}")
-    print(f"  DB       : {db if db else '(no encontrada todavía)'}")
+    print(f"  DB       : {db_info}")
     print("=" * 52)
 
-    server = HTTPServer(("localhost", PORT), PishicoProxy)
+    server = HTTPServer(("0.0.0.0", PORT), PishicoProxy)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
