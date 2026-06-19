@@ -41,6 +41,7 @@ from db import (
     ultimo_fragmento_acertado,
     get_resumen_categorias,
     get_resumen_cuento,
+    dominio_global,
 )
 
 from cuentos_loader import (
@@ -626,6 +627,7 @@ class ActionIniciarVocabulario(Action):
             SlotSet("palabra_actual", palabra["es"]),
             SlotSet("fragmento_actual", 0),
             SlotSet("intentos_palabra", 0),
+            SlotSet("pista_solicitada", False),
             SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
             SlotSet("modo_practica", modo_actual),
@@ -653,6 +655,7 @@ class ActionSiguientePalabra(Action):
         return [
             SlotSet("palabra_actual", nueva["es"]),
             SlotSet("intentos_palabra", 0),
+            SlotSet("pista_solicitada", False),
             SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
@@ -697,6 +700,7 @@ class ActionEvaluarRespuestaVocab(Action):
                 SlotSet("palabra_actual", None),
                 SlotSet("categoria_actual", None),
                 SlotSet("intentos_palabra", 0),
+                SlotSet("pista_solicitada", False),
                 SlotSet("ultima_respuesta_bot", mensaje),
             ]
 
@@ -705,6 +709,9 @@ class ActionEvaluarRespuestaVocab(Action):
         intentos_previos = int(tracker.get_slot("intentos_palabra") or 0)
         intento_actual = intentos_previos + 1
         modo = _get_modo(tracker)
+        # Lectura del flag de pista usado durante este intento.
+        # Se setea en True por ActionDarPistaVocab y se consume aquí.
+        pista_usada = bool(tracker.get_slot("pista_solicitada"))
 
         info = encontrar_palabra(categoria, palabra_es)
         esperada, variantes = _esperada_y_variantes(info, modo)
@@ -736,6 +743,7 @@ class ActionEvaluarRespuestaVocab(Action):
                 tracker.sender_id, categoria, palabra_es, forma_shp,
                 "correcto", intento_actual,
                 nivel=nivel, criterios="uso,ortografia",
+                modo=modo, uso_pista=pista_usada,
             )
 
             dispatcher.utter_message(text=mensaje + "\n¿Seguimos?", buttons=[
@@ -744,6 +752,7 @@ class ActionEvaluarRespuestaVocab(Action):
             ])
             return eventos_base + [
                 SlotSet("intentos_palabra", 0),  # reset para la siguiente palabra
+                SlotSet("pista_solicitada", False),  # reset del flag de pista
                 SlotSet("ultima_respuesta_bot", mensaje),
             ]
 
@@ -776,6 +785,7 @@ class ActionEvaluarRespuestaVocab(Action):
             tracker.sender_id, categoria, palabra_es, forma_shp,
             "incorrecto", intento_actual,
             nivel=0, criterios="uso,ortografia",
+            modo=modo, uso_pista=pista_usada,
         )
         mensaje = (
             f"La respuesta era '**{esperada}**'. 🌱\n"
@@ -787,6 +797,7 @@ class ActionEvaluarRespuestaVocab(Action):
         ])
         return eventos_base + [
             SlotSet("intentos_palabra", 0),  # reset
+            SlotSet("pista_solicitada", False),  # reset del flag de pista
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
@@ -803,7 +814,12 @@ class ActionDarPistaVocab(Action):
         pregunta = _formular_pregunta(info, modo)
         mensaje = f"💡 Pista: {pista}\n{pregunta}"
         dispatcher.utter_message(text=mensaje)
-        return [SlotSet("ultima_respuesta_bot", mensaje)]
+        # Marcar que se usó pista en este intento. La penalización
+        # se aplica en calcular_score_palabra() al evaluar la respuesta.
+        return [
+            SlotSet("pista_solicitada", True),
+            SlotSet("ultima_respuesta_bot", mensaje),
+        ]
 
 
 class ActionRepetirUltimaPalabra(Action):
@@ -921,6 +937,7 @@ class ActionIniciarCuento(Action):
             SlotSet("palabra_actual", None),
             SlotSet("categoria_actual", None),
             SlotSet("intentos_palabra", 0),
+            SlotSet("pista_solicitada", False),
             SlotSet("respuesta_actividad", None),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
@@ -975,6 +992,7 @@ class ActionSiguienteFragmento(Action):
         eventos = [
             SlotSet("fragmento_actual", float(idx)),
             SlotSet("intentos_palabra", 0),  # reset al avanzar de fragmento
+            SlotSet("pista_solicitada", False),  # reset del flag de pista
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
         if frag.get("pregunta"):
@@ -1030,6 +1048,9 @@ class ActionEvaluarRespuestaCuento(Action):
         cuento_id = _cuento_id_activo(tracker)
         intentos_previos = int(tracker.get_slot("intentos_palabra") or 0)
         intento_actual = intentos_previos + 1
+        # Flag de pista. Se setea en True por ActionDarAyudaCuento y se
+        # consume aquí para registrar uso_pista en ProgresoCuento.
+        pista_usada = bool(tracker.get_slot("pista_solicitada"))
         resultado = evaluar_respuesta(texto, esperada)
         eventos_base = [SlotSet("respuesta_actividad", None)]
 
@@ -1052,12 +1073,14 @@ class ActionEvaluarRespuestaCuento(Action):
             registrar_fragmento_cuento(
                 tracker.sender_id, cuento_id, idx, True,
                 nivel=nivel, criterios="uso,comprension",
+                uso_pista=pista_usada,
             )
             dispatcher.utter_message(text=mensaje, buttons=[
                 {"title": "Continuar historia", "payload": "/continuar"},
             ])
             return eventos_base + [
                 SlotSet("intentos_palabra", 0),  # reset para próximo fragmento
+                SlotSet("pista_solicitada", False),  # reset del flag de pista
                 SlotSet("ultima_respuesta_bot", mensaje),
             ]
 
@@ -1088,6 +1111,7 @@ class ActionEvaluarRespuestaCuento(Action):
         registrar_fragmento_cuento(
             tracker.sender_id, cuento_id, idx, False,
             nivel=0, criterios="uso,comprension",
+            uso_pista=pista_usada,
         )
         mensaje = (
             f"La palabra que buscábamos era '**{esperada}**'. 🌱\n\n"
@@ -1098,6 +1122,7 @@ class ActionEvaluarRespuestaCuento(Action):
         ])
         return eventos_base + [
             SlotSet("intentos_palabra", 0),  # reset
+            SlotSet("pista_solicitada", False),  # reset del flag de pista
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
 
@@ -1116,7 +1141,12 @@ class ActionDarAyudaCuento(Action):
         if frag.get("pregunta"):
             mensaje += f"\n\nVuelvo a preguntarte: {frag['pregunta']}"
         dispatcher.utter_message(text=mensaje)
-        return [SlotSet("ultima_respuesta_bot", mensaje)]
+        # Marcar que se usó pista. ActionEvaluarRespuestaCuento la pasa a
+        # registrar_fragmento_cuento(uso_pista=True) para tracking.
+        return [
+            SlotSet("pista_solicitada", True),
+            SlotSet("ultima_respuesta_bot", mensaje),
+        ]
 
 
 class ActionRepetirFragmento(Action):
@@ -1233,6 +1263,7 @@ class ActionSeleccionarModo(Action):
                     dispatcher.utter_message(text=mensaje)
                     eventos += [
                         SlotSet("intentos_palabra", 0),
+                        SlotSet("pista_solicitada", False),
                         SlotSet("respuesta_actividad", None),
                         SlotSet("ultima_respuesta_bot", mensaje),
                         FollowupAction("actividad_form"),
@@ -1258,7 +1289,13 @@ class ActionSeleccionarModo(Action):
 
 
 class ActionVerProgreso(Action):
-    """Reporte de progreso del usuario, leído desde la DB."""
+    """Reporte de progreso del usuario, leído desde la DB.
+
+    Incluye, además del resumen tradicional por categoría:
+    - Score promedio global (sistema ponderado producción ×2 / receptivo ×1)
+    - Tasas de acierto por modo de práctica
+    - Tasa de uso de pistas (proxy de dificultad percibida)
+    """
 
     def name(self) -> Text:
         return "action_ver_progreso"
@@ -1267,6 +1304,13 @@ class ActionVerProgreso(Action):
         sid = tracker.sender_id
         cats = get_resumen_categorias(sid)
         cuentos = get_resumen_cuento(sid)
+
+        # Métricas globales ponderadas (Hito 4). Si DB falla, devuelve ceros
+        # y el bloque ponderado simplemente no se muestra.
+        try:
+            metricas = dominio_global(sid)
+        except Exception:
+            metricas = {}
 
         tiene_datos = any(c["dominadas"] > 0 for c in cats) or len(cuentos) > 0
         if not tiene_datos:
@@ -1296,6 +1340,32 @@ class ActionVerProgreso(Action):
         total_pal = sum(c["total"] for c in cats)
         pct = round(total_dom / total_pal * 100) if total_pal else 0
         lineas.append(f"\n🏆 **Total: {total_dom}/{total_pal} ({pct}%)**")
+
+        # Bloque de scoring ponderado: solo si hay datos significativos
+        n_intentos = int(metricas.get("total_intentos", 0))
+        if metricas and n_intentos > 0:
+            score_prom = metricas.get("score_promedio", 0)
+            tasa_prod  = metricas.get("tasa_acierto_es_shp", 0)
+            tasa_rec   = metricas.get("tasa_acierto_shp_es", 0)
+            tasa_pista = metricas.get("tasa_uso_pista", 0)
+            dom        = metricas.get("palabras_dominadas", 0)
+            apr        = metricas.get("palabras_aprendiendo", 0)
+            nue        = metricas.get("palabras_nuevas", 0)
+
+            lineas.append("\n⭐ **Score ponderado**")
+            lineas.append(
+                f"• Promedio: **{score_prom}/100**  "
+                f"(✅ {dom} dominadas · 📘 {apr} aprendiendo · 🌱 {nue} nuevas)"
+            )
+            partes_tasa: List[str] = []
+            if tasa_prod > 0:
+                partes_tasa.append(f"Producir {tasa_prod}%")
+            if tasa_rec > 0:
+                partes_tasa.append(f"Reconocer {tasa_rec}%")
+            if tasa_pista > 0:
+                partes_tasa.append(f"Pistas {tasa_pista}%")
+            if partes_tasa:
+                lineas.append("• " + " · ".join(partes_tasa))
 
         dispatcher.utter_message(
             text="\n".join(lineas),

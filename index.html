@@ -278,6 +278,85 @@ body {
  font-style: italic;
 }
 
+/* ── Dashboard de scoring ponderado (panel Mi Aprendizaje) ─────────── */
+.score-dashboard {
+ background: linear-gradient(135deg, #fff 0%, #f9f6e8 100%);
+ border: 1px solid #e6e3d4; border-radius: 14px;
+ padding: 1.1rem 1.25rem; margin-bottom: 1rem;
+ box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.score-dashboard .score-header {
+ display: flex; align-items: baseline; gap:.6rem;
+ margin-bottom:.4rem;
+}
+.score-dashboard .score-numero {
+ font-size: 2rem; font-weight: 800; color: #3b4a24; line-height: 1;
+}
+.score-dashboard .score-unidad {
+ font-size:.85rem; color: #6b6b5e; font-weight: 600;
+}
+.score-dashboard .score-label {
+ font-size:.7rem; color: #888; text-transform: uppercase;
+ letter-spacing:.04em; font-weight: 700; margin-left:auto;
+}
+.score-dashboard .score-progress {
+ height: 10px; background: #eee; border-radius: 5px;
+ overflow: hidden; margin:.55rem 0 .95rem 0;
+}
+.score-dashboard .score-progress > div {
+ height: 100%; background: linear-gradient(90deg, #6b8b3a, #3b4a24);
+ border-radius: 5px; transition: width .6s ease;
+}
+.score-estados {
+ display: grid; grid-template-columns: 1fr 1fr 1fr; gap:.5rem;
+ margin-bottom:.85rem;
+}
+.score-estado {
+ background: #fff; border: 1px solid #e6e3d4; border-radius: 8px;
+ padding:.5rem .55rem; text-align: center;
+}
+.score-estado .num {
+ display: block; font-size: 1.1rem; font-weight: 800; line-height: 1.1;
+}
+.score-estado .lbl {
+ display: block; font-size:.65rem; color: #888;
+ text-transform: uppercase; letter-spacing:.03em; margin-top:.15rem;
+ font-weight: 600;
+}
+.score-estado.dominado .num { color: #2e7d32; }
+.score-estado.aprendiendo .num { color: #f57f17; }
+.score-estado.nuevo .num { color: #888; }
+
+.score-tasas {
+ display: flex; flex-wrap: wrap; gap:.4rem;
+}
+.tasa-pill {
+ background: #fff; border: 1px solid #e6e3d4; border-radius: 999px;
+ padding:.3rem .65rem; font-size:.72rem; color: #3b4a24;
+ font-weight: 600; display: inline-flex; gap:.3rem; align-items: baseline;
+}
+.tasa-pill .tasa-val { color: #6b8b3a; font-weight: 800; }
+.tasa-pill.tasa-pista .tasa-val { color: #b88a00; }
+
+/* Desglose ponderado por categoría (fila debajo de niveles pedagógicos) */
+.cat-scoring {
+ display: flex; flex-wrap: wrap; gap:.45rem;
+ margin-top:.5rem; padding-top:.55rem;
+ border-top: 1px dashed #e6e3d4;
+}
+.cat-scoring .micro-pill {
+ font-size:.68rem; padding:.18rem .5rem; border-radius: 999px;
+ background: #f9f6e8; color: #6b6b5e; font-weight: 600;
+ border: 1px solid #ece9d8;
+}
+.cat-scoring .micro-pill.scoring-prod { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+.cat-scoring .micro-pill.scoring-recep { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+.cat-scoring .micro-pill.scoring-err { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+.cat-scoring .micro-pill.scoring-pista { background: #fff8e1; color: #b88a00; border-color: #ffe082; }
+.cat-scoring .micro-pill.scoring-score {
+ background: #3b4a24; color: #f9f6e8; border-color: #3b4a24;
+}
+
 #panel-progreso {
  flex: 1; display: none; flex-direction: column;
  overflow-y: auto; padding: 1.5rem;
@@ -406,6 +485,39 @@ body {
 .selector-categoria h2 { color: #3b4a24; font-size: 1.2rem; margin: 0 0.35rem 0; text-align: center; }
 .selector-categoria .subtitle { color: #6b6b5e; font-size:.9rem; margin-bottom: 1.5rem; text-align: center; }
 .categoria-grid { display: grid; grid-template-columns: 1fr 1fr; gap:.75rem; }
+
+/* ── Selector de modo de práctica (segmented control) ────────────── */
+.selector-modo {
+ background: #f9f6e8; border: 1px solid #e6e3d4; border-radius: 12px;
+ padding: .85rem 1rem; margin: 0 0 1.5rem 0;
+}
+.selector-modo .modo-label {
+ display: block; text-align: center; font-size: .8rem;
+ color: #6b6b5e; margin-bottom:.55rem; font-weight: 600;
+ letter-spacing:.02em; text-transform: uppercase;
+}
+.modo-toggle {
+ display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+ background: #fff; border-radius: 8px; padding: 3px;
+ border: 1px solid #e6e3d4;
+}
+.modo-btn {
+ background: transparent; border: none; border-radius: 6px;
+ padding: .55rem .4rem; font-family: inherit; font-size: .82rem;
+ color: #6b6b5e; cursor: pointer; transition: all .15s ease;
+ line-height: 1.2; font-weight: 600;
+}
+.modo-btn:hover { color: #3b4a24; }
+.modo-btn.is-active {
+ background: #3b4a24; color: #f9f6e8;
+ box-shadow: 0 1px 3px rgba(59,74,36,0.2);
+}
+.modo-btn .modo-titulo { display: block; font-size:.85rem; }
+.modo-btn .modo-desc {
+ display: block; font-size:.68rem; opacity:.85;
+ margin-top:.15rem; font-weight: 500;
+}
+
 .categoria-btn {
  display: flex; align-items: center; gap:.8rem;
  background: #fff; border: 2px solid #e6e3d4; border-radius: 12px;
@@ -1068,10 +1180,36 @@ async function mostrarSelectorCategoria() {
  return;
  }
 
+ // Modo de práctica actual (default: producir es→shp si nunca se ha elegido)
+ const modoActual = localStorage.getItem('pishico_modo_practica') || 'es_a_shp';
+ const activoEsShp = modoActual === 'es_a_shp' ? 'is-active' : '';
+ const activoShpEs = modoActual === 'shp_a_es' ? 'is-active' : '';
+
  const html = [`
  <div class="selector-categoria">
  <h2>¿Qué categoría quieres practicar?</h2>
  <p class="subtitle">Elige una para comenzar tu práctica de vocabulario.</p>
+
+ <div class="selector-modo">
+ <span class="modo-label">Modo de práctica</span>
+ <div class="modo-toggle" role="tablist" aria-label="Modo de práctica">
+ <button type="button" class="modo-btn ${activoEsShp}"
+ data-modo="es_a_shp"
+ onclick="seleccionarModoPractica('es_a_shp')"
+ aria-pressed="${modoActual === 'es_a_shp'}">
+ <span class="modo-titulo">Producir</span>
+ <span class="modo-desc">Español → Shipibo</span>
+ </button>
+ <button type="button" class="modo-btn ${activoShpEs}"
+ data-modo="shp_a_es"
+ onclick="seleccionarModoPractica('shp_a_es')"
+ aria-pressed="${modoActual === 'shp_a_es'}">
+ <span class="modo-titulo">Reconocer</span>
+ <span class="modo-desc">Shipibo → Español</span>
+ </button>
+ </div>
+ </div>
+
  <div class="categoria-grid">
  `];
 
@@ -1092,6 +1230,23 @@ async function mostrarSelectorCategoria() {
  html.push('</div></div>');
  cont.innerHTML = html.join('');
  cont.scrollTop = 0;
+}
+
+/**
+ * Cambia el modo de práctica seleccionado SIN enviar nada al backend.
+ * Solo actualiza localStorage y refresca visualmente el toggle.
+ * El modo se aplica efectivamente cuando el usuario hace click en una
+ * categoría: enviarARasa() inyecta `modo_practica` en el payload.
+ */
+function seleccionarModoPractica(modo) {
+ if (modo !== 'es_a_shp' && modo !== 'shp_a_es') return;
+ localStorage.setItem('pishico_modo_practica', modo);
+ // Actualizar el estilo visual del toggle sin re-renderizar todo
+ document.querySelectorAll('.modo-btn').forEach(btn => {
+  const esActivo = btn.getAttribute('data-modo') === modo;
+  btn.classList.toggle('is-active', esActivo);
+  btn.setAttribute('aria-pressed', String(esActivo));
+ });
 }
 
 async function iniciarVocabulario(categoria) {
@@ -1407,6 +1562,85 @@ function renderNiveles(niveles) {
  return `<div class="niveles-row">${pills.join('')}</div>`;
 }
 
+/**
+ * Dashboard global: score promedio, distribución por estado y tasas
+ * por modo de práctica. Solo se renderiza si hay datos en data.scoring.
+ */
+function renderDashboardScoring(scoring) {
+ if (!scoring || !scoring.global) return '';
+ const g = scoring.global;
+ if (!g.palabras_vistas || g.palabras_vistas === 0) return '';
+
+ const score = g.score_promedio || 0;
+ const dom = g.palabras_dominadas || 0;
+ const apr = g.palabras_aprendiendo || 0;
+ const nue = g.palabras_nuevas || 0;
+
+ // Tasas: solo mostrar las que tengan datos
+ const tasas = [];
+ if (g.tasa_acierto_es_shp > 0) {
+  tasas.push(`<span class="tasa-pill" title="Aciertos al producir en shipibo">
+    Producir <span class="tasa-val">${g.tasa_acierto_es_shp}%</span>
+  </span>`);
+ }
+ if (g.tasa_acierto_shp_es > 0) {
+  tasas.push(`<span class="tasa-pill" title="Aciertos al reconocer en español">
+    Reconocer <span class="tasa-val">${g.tasa_acierto_shp_es}%</span>
+  </span>`);
+ }
+ if (g.tasa_uso_pista > 0) {
+  tasas.push(`<span class="tasa-pill tasa-pista" title="Porcentaje de intentos con pista">
+    Pistas usadas <span class="tasa-val">${g.tasa_uso_pista}%</span>
+  </span>`);
+ }
+
+ return `
+  <div class="score-dashboard">
+   <div class="score-header">
+    <span class="score-numero">${score}</span>
+    <span class="score-unidad">/ 100</span>
+    <span class="score-label">Score promedio</span>
+   </div>
+   <div class="score-progress"><div style="width:${Math.min(100, score)}%"></div></div>
+   <div class="score-estados">
+    <div class="score-estado dominado">
+     <span class="num">${dom}</span><span class="lbl">Dominadas</span>
+    </div>
+    <div class="score-estado aprendiendo">
+     <span class="num">${apr}</span><span class="lbl">Aprendiendo</span>
+    </div>
+    <div class="score-estado nuevo">
+     <span class="num">${nue}</span><span class="lbl">Nuevas</span>
+    </div>
+   </div>
+   ${tasas.length ? `<div class="score-tasas">${tasas.join('')}</div>` : ''}
+  </div>
+ `;
+}
+
+/**
+ * Desglose ponderado de una categoría: producciones, receptivos,
+ * errores y pistas. Sólo se renderiza si hay al menos un evento.
+ */
+function renderCatScoring(scoringCat) {
+ if (!scoringCat) return '';
+ const prod  = scoringCat.producciones_ok || 0;
+ const recep = scoringCat.receptivos_ok   || 0;
+ const err   = scoringCat.errores         || 0;
+ const pista = scoringCat.usos_pista      || 0;
+ const score = scoringCat.score_promedio  || 0;
+ if (prod + recep + err + pista === 0) return '';
+
+ const pills = [];
+ pills.push(`<span class="micro-pill scoring-score" title="Score promedio de la categoría">★ ${score}/100</span>`);
+ if (prod  > 0) pills.push(`<span class="micro-pill scoring-prod"  title="Aciertos en producción (×2)">P ${prod}</span>`);
+ if (recep > 0) pills.push(`<span class="micro-pill scoring-recep" title="Aciertos en reconocimiento (×1)">R ${recep}</span>`);
+ if (err   > 0) pills.push(`<span class="micro-pill scoring-err"   title="Errores (−1)">✗ ${err}</span>`);
+ if (pista > 0) pills.push(`<span class="micro-pill scoring-pista" title="Pistas usadas (−0.5)">💡 ${pista}</span>`);
+
+ return `<div class="cat-scoring">${pills.join('')}</div>`;
+}
+
 async function renderizarProgreso() {
  const cont = document.getElementById('cats-container');
  cont.innerHTML = '<div style="text-align:center;padding:2rem;color:#888;">Cargando...</div>';
@@ -1415,8 +1649,20 @@ async function renderizarProgreso() {
  const data = await resp.json();
  const cats = data.categorias || [];
  const cuentos = data.cuentos || [];
+ const scoring = data.scoring || null;
  cont.innerHTML = '';
+
+ // Indexar scoring por categoría para combinar con cats
+ const scoringMap = {};
+ if (scoring && Array.isArray(scoring.por_categoria)) {
+  scoring.por_categoria.forEach(s => { scoringMap[s.categoria] = s; });
+ }
+
  let hayDatos = cats.some(c => c.dominadas > 0) || cuentos.length > 0;
+
+ // Dashboard ponderado (solo si hay datos en scoring.global)
+ const dashboard = renderDashboardScoring(scoring);
+ if (dashboard) cont.innerHTML += dashboard;
 
  // Leyenda de niveles (solo si hay datos en algún nivel)
  const hayNiveles =
@@ -1442,6 +1688,7 @@ async function renderizarProgreso() {
  </div>
  <div class="cat-sub">${c.dominadas} de ${c.total} palabras dominadas</div>
  ${renderNiveles(c.niveles)}
+ ${renderCatScoring(scoringMap[c.categoria])}
  `;
  cont.appendChild(card);
  });
@@ -1462,7 +1709,7 @@ async function renderizarProgreso() {
  cont.appendChild(cuentoCard);
  }
 
- if (!hayDatos) {
+ if (!hayDatos && !dashboard) {
  cont.innerHTML = `
  <div style="text-align:center;padding:3rem 1rem;color:#888;">
  <div style="font-size:3rem;margin-bottom:1rem;">🌱</div>

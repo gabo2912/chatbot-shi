@@ -23,6 +23,7 @@ intents:
 entities:
   - palabra_objetivo
   - modo
+  - modo_practica
   - cuento_actual
   - categoria_actual
   - texto_usuario
@@ -122,6 +123,20 @@ slots:
       - shp_a_es
     # Sin initial_value: para que la primera vez del usuario se muestre
     # el selector de modo antes de comenzar las preguntas.
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: modo_practica
+      - type: custom
+
+  # Marca interna para indicar que el usuario solicitó una pista durante
+  # el intento actual. Se setea en True por ActionDarPistaVocab /
+  # ActionDarAyudaCuento y se consume en las acciones de evaluación
+  # para aplicar la penalización pedagógica (PENALIZA_PISTA en db.py).
+  # Reseteado a False al avanzar a una nueva palabra o fragmento.
+  pista_solicitada:
+    type: bool
+    initial_value: false
     influence_conversation: false
     mappings:
       - type: custom
