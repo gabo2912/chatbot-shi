@@ -824,6 +824,105 @@ def dominio_global(sender_id: str) -> Dict[str, Any]:
                 "tasa_acierto_es_shp": 0, "tasa_acierto_shp_es": 0, "tasa_uso_pista": 0}
 
 
+def get_resumen_scoring_completo(sender_id: str) -> Dict[str, Any]:
+    """
+    Devuelve el desglose ponderado completo del usuario para el panel
+    'Mi Aprendizaje', integrando dominio_global() con un breakdown por
+    categoría.
+
+    Returns dict con:
+      global: salida de dominio_global() — métricas agregadas
+      por_categoria: lista de dicts con:
+        categoria, score_promedio, dominadas, aprendiendo, nuevas,
+        producciones_ok, receptivos_ok, errores, usos_pista,
+        n_palabras (palabras únicas vistas en la categoría)
+
+    Notas de implementación:
+      - Para cada palabra vista se llama a calcular_score_palabra() una vez.
+        Esto es O(N) por número de palabras únicas vistas (~60 en uso típico),
+        manejable para el endpoint /progreso.
+      - Si la DB está vacía o falla, devuelve estructura vacía coherente
+        para no romper el frontend.
+    """
+    glob = dominio_global(sender_id)
+    por_categoria_list: List[Dict[str, Any]] = []
+
+    try:
+        with SessionLocal() as session:
+            # Conteos crudos por (categoria, palabra) — base del breakdown
+            rows = session.execute(text("""
+                SELECT
+                    categoria,
+                    palabra_es,
+                    SUM(CASE WHEN resultado='correcto' AND modo='es_a_shp' THEN 1 ELSE 0 END) AS p_ok,
+                    SUM(CASE WHEN resultado='correcto' AND modo='shp_a_es' THEN 1 ELSE 0 END) AS r_ok,
+                    SUM(CASE WHEN resultado='incorrecto' THEN 1 ELSE 0 END) AS errores,
+                    SUM(CASE WHEN uso_pista THEN 1 ELSE 0 END) AS pistas
+                FROM progreso_vocabulario
+                WHERE sender_id = :sid
+                GROUP BY categoria, palabra_es
+            """), {"sid": sender_id}).mappings().all()
+
+        # Agregar por categoría
+        acum: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            cat = r["categoria"]
+            if cat not in acum:
+                acum[cat] = {
+                    "producciones_ok": 0, "receptivos_ok": 0,
+                    "errores": 0, "usos_pista": 0,
+                    "scores": [],
+                }
+            # Score ponderado por palabra (reusa la fórmula oficial)
+            info_score = calcular_score_palabra(sender_id, r["palabra_es"])
+            acum[cat]["producciones_ok"] += int(r["p_ok"] or 0)
+            acum[cat]["receptivos_ok"]   += int(r["r_ok"] or 0)
+            acum[cat]["errores"]         += int(r["errores"] or 0)
+            acum[cat]["usos_pista"]      += int(r["pistas"] or 0)
+            acum[cat]["scores"].append(info_score["score"])
+
+        # Calcular promedios y estados por categoría
+        for cat, agg in acum.items():
+            scores = agg["scores"]
+            n = len(scores)
+            n_dom = sum(1 for s in scores if s >= UMBRAL_DOMINADO)
+            n_apr = sum(1 for s in scores if UMBRAL_APRENDIENDO <= s < UMBRAL_DOMINADO)
+            n_nue = sum(1 for s in scores if s < UMBRAL_APRENDIENDO)
+            por_categoria_list.append({
+                "categoria":       cat,
+                "score_promedio":  round(sum(scores) / n, 1) if n else 0,
+                "n_palabras":      n,
+                "dominadas":       n_dom,
+                "aprendiendo":     n_apr,
+                "nuevas":          n_nue,
+                "producciones_ok": agg["producciones_ok"],
+                "receptivos_ok":   agg["receptivos_ok"],
+                "errores":         agg["errores"],
+                "usos_pista":      agg["usos_pista"],
+            })
+
+        # Ordenar para presentación estable (alfabético)
+        por_categoria_list.sort(key=lambda x: x["categoria"])
+    except Exception as e:
+        logger.error("get_resumen_scoring_completo(%s): %s", sender_id, e)
+
+    # Pesos efectivos (útil para que el frontend muestre la fórmula)
+    pesos = {
+        "produccion":      PESO_PRODUCCION,
+        "receptivo":       PESO_RECEPTIVO,
+        "penaliza_pista":  PENALIZA_PISTA,
+        "penaliza_error":  PENALIZA_ERROR,
+        "umbral_dominado": UMBRAL_DOMINADO,
+        "umbral_aprendiendo": UMBRAL_APRENDIENDO,
+    }
+
+    return {
+        "global":         glob,
+        "por_categoria":  por_categoria_list,
+        "pesos":          pesos,
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Inicialización automática al importar (resiliente)
 # ─────────────────────────────────────────────────────────────────────────────

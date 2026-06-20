@@ -166,13 +166,22 @@ def _leer_progreso(sender_id: str):
     """
     Lee progreso por categoría y cuento usando db.py (RDS).
     Reemplaza la lectura directa de SQLite local (legacy).
+
+    Incluye:
+      - categorias: resumen por nivel pedagógico (compatibilidad legacy)
+      - cuentos:    resumen de fragmentos completados
+      - scoring:    desglose ponderado (global + por categoría) — HITO 4
     """
     if not _DB_DISPONIBLE:
-        return {"error": "DB no disponible", "categorias": [], "cuentos": []}
+        return {"error": "DB no disponible", "categorias": [], "cuentos": [], "scoring": None}
 
     try:
         # db.py ya tiene la lógica completa con queries portables a PostgreSQL
-        from db import get_resumen_categorias, get_resumen_cuento
+        from db import (
+            get_resumen_categorias,
+            get_resumen_cuento,
+            get_resumen_scoring_completo,
+        )
 
         categorias = get_resumen_categorias(sender_id)
         cuentos_brutos = get_resumen_cuento(sender_id)
@@ -186,10 +195,21 @@ def _leer_progreso(sender_id: str):
                 "niveles":     c.get("niveles", {"2": 0, "1": 0, "0": 0}),
             })
 
-        return {"categorias": categorias, "cuentos": cuentos}
+        # Nuevo: scoring ponderado (global + por categoría)
+        try:
+            scoring = get_resumen_scoring_completo(sender_id)
+        except Exception as e_scoring:
+            print(f"[proxy] WARN scoring: {e_scoring}")
+            scoring = None
+
+        return {
+            "categorias": categorias,
+            "cuentos":    cuentos,
+            "scoring":    scoring,
+        }
     except Exception as e:
         print(f"[proxy] ERROR _leer_progreso: {e}")
-        return {"error": str(e), "categorias": [], "cuentos": []}
+        return {"error": str(e), "categorias": [], "cuentos": [], "scoring": None}
 
 
 def _cuentos_xlsx_path():

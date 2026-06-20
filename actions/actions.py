@@ -249,12 +249,27 @@ def _pista_segun_modo(palabra_info: Dict[str, Any], modo: str) -> str:
     shp = palabra_info.get("shp", "")
     if not shp:
         return "Piensa en cómo suena esta palabra en shipibo."
-    inicial = shp[0].lower()
-    n = len(shp.replace(" ", ""))
-    return (
-        f"La palabra en shipibo empieza con **{inicial}** "
-        f"y tiene {n} letras."
-    )
+    return _pista_tecnica_palabra(shp) or "Piensa en cómo suena esta palabra en shipibo."
+
+
+def _pista_tecnica_palabra(palabra: Optional[str]) -> str:
+    """
+    Genera una pista técnica reusable basada en la forma de la palabra:
+    inicial y cantidad de letras (sin contar espacios).
+    Útil para cuentos (donde la palabra esperada está en shipibo) y para
+    el modo es→shp de vocabulario.
+
+    Devuelve cadena vacía si la palabra no es válida, para que el llamador
+    pueda concatenar condicionalmente sin chequeos extras.
+    """
+    if not palabra or not isinstance(palabra, str):
+        return ""
+    p = palabra.strip()
+    if not p:
+        return ""
+    inicial = p[0].upper()
+    n_letras = len(p.replace(" ", ""))
+    return f"Empieza con **{inicial}** y tiene **{n_letras}** letras."
 
 
 def _esperada_y_variantes(palabra_info: Dict[str, Any], modo: str):
@@ -449,13 +464,18 @@ class ValidateActividadForm(FormValidationAction):
             and len(tokens) > 1
         ):
             if flujo == "cuento":
-                # Pista para el cuento
+                # Pista para el cuento: cultural + técnica (primera letra y
+                # cantidad de letras) si hay respuesta_esperada disponible.
                 idx = int(tracker.get_slot("fragmento_actual") or 0)
                 frag = _get_fragmento(tracker, idx)
                 ayuda_msg = (frag or {}).get("ayuda") or "Lee el fragmento con calma."
                 preg = (frag or {}).get("pregunta") or "Escribe la palabra en shipibo."
+                pista_tecnica = _pista_tecnica_palabra((frag or {}).get("respuesta_esperada"))
+                if pista_tecnica:
+                    ayuda_msg = f"{ayuda_msg} {pista_tecnica}"
                 dispatcher.utter_message(text=f"💡 {ayuda_msg}\n\n{preg}")
-                return {"respuesta_actividad": None}
+                # Marcar pista usada para tracking pedagógico (Hito 4).
+                return {"respuesta_actividad": None, "pista_solicitada": True}
 
             # Pista para vocabulario (respetando el modo de práctica)
             categoria = tracker.get_slot("categoria_actual") or "naturaleza"
@@ -465,7 +485,8 @@ class ValidateActividadForm(FormValidationAction):
             pista = _pista_segun_modo(info, modo)
             pregunta = _formular_pregunta(info, modo)
             dispatcher.utter_message(text=f"💡 Pista: {pista}\n{pregunta}")
-            return {"respuesta_actividad": None}
+            # Marcar pista usada para tracking pedagógico (Hito 4).
+            return {"respuesta_actividad": None, "pista_solicitada": True}
 
         # Caso repetición clara
         if es_repeticion:
@@ -1136,7 +1157,12 @@ class ActionDarAyudaCuento(Action):
         frag = _get_fragmento(tracker, idx)
         if not frag:
             return []
+        # Pista cultural del Excel (col "ayuda") + pista técnica generada a
+        # partir de respuesta_esperada (inicial + cantidad de letras).
         ayuda = frag.get("ayuda") or "Lee el fragmento con calma."
+        pista_tecnica = _pista_tecnica_palabra(frag.get("respuesta_esperada"))
+        if pista_tecnica:
+            ayuda = f"{ayuda} {pista_tecnica}"
         mensaje = f"💡 {ayuda}"
         if frag.get("pregunta"):
             mensaje += f"\n\nVuelvo a preguntarte: {frag['pregunta']}"
@@ -1608,6 +1634,85 @@ def _detectar_pregunta_metalinguistica(texto: str):
     return None
 
 
+# Patrones de intención de traducción explícita. Capturan la palabra objetivo
+# en el grupo 1. Cubren las formulaciones más naturales que un alumno usaría
+# en el modo conversación libre. Se mantienen sin tildes en los patrones
+# porque trabajamos contra un texto sin normalizar (lowercase manual).
+_PATRONES_TRADUCCION = [
+    # "traduce X" / "tradúceme X" / "traducime X" / "traducir X" / "cómo se traduce X"
+    r"(?:traduce(?:me)?|traducime|traducir(?:me)?|c[oó]mo se traduce)\s+(?:la\s+palabra\s+)?([\wáéíóúñ\-]+)",
+    # "cómo se dice X" / "cómo digo X"
+    r"(?:c[oó]mo\s+(?:se\s+)?(?:dice|digo))\s+([\wáéíóúñ\-]+)",
+    # "qué significa X" / "qué quiere decir X" / "qué es X" (último más laxo)
+    r"qu[eé]\s+(?:significa|quiere\s+decir)\s+([\wáéíóúñ\-]+)",
+    # "dime el significado de X" / "cuál es el significado de X"
+    r"(?:dime|d[ií]me|cu[aá]l\s+es)\s+(?:el\s+)?significado\s+de\s+([\wáéíóúñ\-]+)",
+    # "X en español" / "X en shipibo" / "X en castellano"
+    r"([\wáéíóúñ\-]+)\s+en\s+(?:espa[ñn]ol|shipibo(?:-konibo)?|castellano)",
+]
+
+# Palabras a descartar: stopwords, artículos, pronombres muy cortos. Si el
+# regex capturó algo así es ruido (no es la palabra que el alumno quiere).
+_STOPWORDS_TRADUCCION = {
+    "que", "lo", "la", "el", "tu", "yo", "mi", "su", "se", "es",
+    "una", "un", "los", "las", "esta", "este", "ese", "esa", "eso",
+    "como", "cómo", "esto", "algo", "palabra", "shipibo", "konibo",
+    "espanol", "español", "castellano", "ingles", "inglés",
+}
+
+
+def _extraer_palabra_a_traducir(texto: str) -> Optional[str]:
+    """
+    Detecta intención de traducción explícita y extrae la palabra objetivo.
+
+    Devuelve la palabra (en minúsculas, sin signos) o None si el texto no
+    expresa una intención clara de traducción.
+
+    Ejemplos de match:
+      "traduce sol"           → "sol"
+      "qué significa jene"    → "jene"
+      "cómo se dice agua"     → "agua"
+      "jene en español"       → "jene"
+      "dime el significado de yapa" → "yapa"
+    """
+    import re as _re
+    if not texto:
+        return None
+    t = texto.lower().strip()
+    # Quitar signos finales para que no entren al grupo capturado
+    t = _re.sub(r"[¿?¡!.,]", " ", t).strip()
+    for patron in _PATRONES_TRADUCCION:
+        m = _re.search(patron, t)
+        if not m:
+            continue
+        palabra = m.group(1).strip()
+        if len(palabra) < 2:
+            continue
+        if palabra in _STOPWORDS_TRADUCCION:
+            continue
+        return palabra
+    return None
+
+
+# Plantillas para respuesta de traducción explícita (modo Conversar). Se
+# rotan para evitar respuestas idénticas en intentos consecutivos.
+_TPL_TRADUCCION_OK = (
+    "🌿 **{palabra}** se traduce como **{traduccion}**.",
+    "🌿 La traducción de **{palabra}** es **{traduccion}**.",
+    "🌿 En shipibo-konibo, **{palabra}** ↔ **{traduccion}**.",
+)
+
+_TPL_TRADUCCION_NO_ENCONTRADA = (
+    "📚 No tengo la traducción de **{palabra}** en mi corpus actual. "
+    "Conozco un grupo de palabras de uso cotidiano agrupadas en seis "
+    "categorías. ¿Quieres probar con otra palabra o explorar el módulo "
+    "**Aprender Vocabulario**?",
+    "📚 La palabra **{palabra}** no está en mi corpus por ahora. "
+    "Puedes intentar con palabras de naturaleza, animales, colores, "
+    "cuerpo, objetos o números.",
+)
+
+
 # Palabras-disparador que indican que el usuario quiere cambiar a otro módulo.
 # Lista mantenible sin necesidad de reentrenar el NLU. Se chequea ANTES del
 # fallback genérico para responder con un mensaje natural en lugar de
@@ -1860,6 +1965,29 @@ class ActionResponderConversacion(Action):
             )
             dispatcher.utter_message(text=mensaje, buttons=_botones_escalacion())
             return self._cerrar(mensaje, "escalacion")
+
+        # ── 2.5 INTENCIÓN EXPLÍCITA DE TRADUCCIÓN ───────────────────────────
+        # "traduce X", "qué significa X", "cómo se dice X", "X en español", etc.
+        # Va ANTES del bloque 3 (palabra suelta) porque captura formulaciones
+        # de varias palabras que el match exacto del corpus no detectaría.
+        # Si la palabra está en el corpus, respondemos con la traducción
+        # directa. Si no, mensaje honesto que no inventa traducciones.
+        palabra_a_traducir = _extraer_palabra_a_traducir(texto)
+        if palabra_a_traducir:
+            traduccion_explicita = _traducir_corpus(normalizar(palabra_a_traducir))
+            if traduccion_explicita:
+                mensaje = _formatear_sin_repetir(
+                    _TPL_TRADUCCION_OK, ultima_respuesta,
+                    palabra=palabra_a_traducir,
+                    traduccion=traduccion_explicita,
+                )
+            else:
+                mensaje = _formatear_sin_repetir(
+                    _TPL_TRADUCCION_NO_ENCONTRADA, ultima_respuesta,
+                    palabra=palabra_a_traducir,
+                )
+            dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+            return self._cerrar(mensaje, "traduccion")
 
         # ── 3. PALABRA DEL CORPUS DE VOCABULARIO → respuesta natural ────────
         # Aislamiento de funciones suave: las palabras del corpus de vocabulario

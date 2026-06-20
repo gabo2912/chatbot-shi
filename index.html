@@ -90,6 +90,16 @@ body {
 .nav-btn:hover { background: var(--sidebar-hover); color: #fff; }
 .nav-btn.active { background: var(--sidebar-active); color: #fff; }
 .nav-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+/* Default desktop: usar label-full; label-short solo aparece en pantallas <380px */
+.nav-btn .label-short { display: none; }
+
+/* ── Default: el logo en header y home queda OCULTO en desktop ────────
+   En desktop, el monito ya se muestra en el sidebar (sidebar-top).
+   Las media queries de móvil lo vuelven visible en header del chat
+   y arriba del título de home cuando el sidebar pasa a ser bottom nav. */
+.header-icon-mascot { display: none; }
+.home-mascot { display: none; }
+.header-icon-svg { display: block; }
 
 
 /* User info */.sidebar-user {
@@ -639,6 +649,227 @@ body {
  margin: 0;
  line-height: 1.4;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   ── RESPONSIVE: TABLETS Y MÓVILES ─────────────────────────────────
+   Estrategia: en pantallas ≤768px (tablets verticales y móviles), el
+   sidebar lateral se convierte en una bottom navigation bar de 5 íconos
+   al estilo de las apps móviles modernas. El logo + nombre del bot
+   desaparecen del sidebar (siguen visibles en el header), el botón de
+   cerrar sesión migra a un menú accesible desde el header.
+   El main agrega padding-bottom para que el contenido no quede oculto
+   bajo la barra. Tipografías y paddings se reducen para mejor lectura
+   en pantallas chicas.
+═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+ /* Layout principal: columna en lugar de fila */
+ body { flex-direction: column; }
+ #app { flex-direction: column !important; height: 100vh; }
+
+ /* Sidebar → bottom navigation bar */
+ #sidebar {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  flex-direction: row;
+  z-index: 100;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+ }
+ /* Ocultar el bloque superior del logo+nombre en móvil */
+ .sidebar-top { display: none; }
+
+ /* Nav horizontal, ocupa todo el ancho */
+ #sidebar nav {
+  flex-direction: row;
+  padding: 0;
+  width: 100%;
+  gap: 0;
+  flex: 1;
+ }
+ .nav-btn {
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: .55rem .25rem .65rem;
+  font-size: .6rem;
+  border-radius: 0;
+  font-weight: 600;
+  letter-spacing: .02em;
+  min-height: 56px;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.1;
+  white-space: normal;
+ }
+ .nav-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+ /* Ocultar texto largo en pantallas extremadamente angostas con data-short */
+ .nav-btn .label-full { display: inline; }
+ .nav-btn .label-short { display: none; }
+
+ /* Botón cerrar sesión: ocultar del sidebar (queda accesible en header) */
+ #sidebar > div[style*="margin-top: auto"] { display: none; }
+
+ /* Botón flotante de cerrar sesión en el header del chat */
+ #mobile-logout-btn { display: flex !important; }
+
+ /* Main: padding-bottom para no tapar contenido con la nav bar */
+ #main { padding-bottom: 60px; }
+
+ /* Header del chat: más compacto */
+ #chat-header { padding: .65rem .85rem; gap: .65rem; }
+ .header-icon { width: 36px; height: 36px; }
+ .header-icon svg { width: 18px; height: 18px; }
+ #chat-titulo { font-size: .95rem; }
+ #chat-subtitulo { font-size: .72rem; }
+
+ /* En móvil, el header-icon muestra el LOGO de Pishico (no el SVG genérico).
+    El sidebar perdió el logo al pasar a bottom nav; el header lo recupera. */
+ .header-icon {
+  background: rgba(255,255,255,0.95);
+  overflow: hidden;
+  padding: 0;
+ }
+ .header-icon-svg { display: none; }
+ .header-icon-mascot {
+  display: block;
+  width: 136%;
+  height: 136%;
+  object-fit: cover;
+  border-radius: 50%;
+ }
+
+ /* Mensajes: padding más chico, burbujas más anchas */
+ #mensajes { padding: .85rem .85rem .4rem; gap: .65rem; }
+ .bubble { max-width: 82%; font-size: .88rem; padding: .65rem .85rem; }
+ .msg-icon { width: 28px; height: 28px; }
+ .msg-icon svg { width: 14px; height: 14px; }
+
+ /* Quick replies más compactos */
+ #quick-replies { padding: .4rem .85rem .55rem; gap: .4rem; }
+ .qr-btn { padding: .42rem .8rem; font-size: .78rem; }
+
+ /* Input area: más compacto pero respetando 44px de target tap */
+ #input-area { padding: .55rem .85rem .75rem; gap: .5rem; }
+ #input-msg { padding: .65rem .9rem; font-size: 16px; }   /* 16px evita zoom automático en iOS */
+ #btn-send { width: 40px; height: 40px; }
+ #btn-send svg { width: 16px; height: 16px; }
+
+ /* Home view: una columna, tipografía más chica */
+ .home-hero { margin-bottom: 1.5rem; padding: 0 .5rem; }
+ /* Logo de Pishico arriba del título (solo móvil) */
+ .home-mascot {
+  display: block;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto .75rem;
+  border-radius: 50%;
+  background: #fff;
+  object-fit: cover;
+  transform: scale(1.28);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+ }
+ .home-hero h1 { font-size: 1.65rem; }
+ .home-subtitle { font-size: .9rem; margin-bottom: 1rem; }
+ .home-question { font-size: .95rem; }
+ .home-cards {
+  grid-template-columns: 1fr;
+  gap: .75rem;
+  padding: 0 .25rem;
+ }
+ .home-card { padding: 1.1rem 1rem; }
+ .home-card-emoji { font-size: 1.85rem; }
+ .home-card h3 { font-size: .98rem; }
+ .home-card p { font-size: .82rem; }
+
+ /* Selector de categoría de vocabulario */
+ .selector-categoria { padding: 1.25rem .75rem; }
+ .selector-categoria h2 { font-size: 1.1rem; }
+ .selector-categoria .subtitle { font-size: .82rem; margin-bottom: 1.1rem; }
+
+ /* Toggle de modo: más compacto */
+ .selector-modo { padding: .75rem .85rem; margin-bottom: 1.1rem; }
+ .selector-modo .modo-label { font-size: .72rem; }
+ .modo-btn { padding: .5rem .3rem; }
+ .modo-btn .modo-titulo { font-size: .8rem; }
+ .modo-btn .modo-desc { font-size: .62rem; }
+
+ /* Cuentos biblioteca */
+ .cuentos-biblioteca { padding: 1.25rem .85rem; }
+ .cuentos-biblioteca h2 { font-size: 1.15rem; }
+ .cuento-card { padding: 1rem; }
+ .cuento-emoji { font-size: 1.7rem; }
+
+ /* Dashboard de scoring: más compacto pero conserva 3 columnas */
+ .score-dashboard { padding: .9rem 1rem; }
+ .score-dashboard .score-numero { font-size: 1.75rem; }
+ .score-dashboard .score-unidad { font-size: .8rem; }
+ .score-dashboard .score-label { font-size: .65rem; }
+ .score-estados { gap: .4rem; }
+ .score-estado { padding: .4rem .35rem; }
+ .score-estado .num { font-size: 1rem; }
+ .score-estado .lbl { font-size: .6rem; }
+ .tasa-pill { font-size: .68rem; padding: .26rem .55rem; }
+ .cat-scoring { gap: .35rem; }
+ .cat-scoring .micro-pill { font-size: .64rem; padding: .15rem .42rem; }
+
+ /* Panel progreso */
+ #panel-progreso { padding: 1.25rem .85rem; }
+ #panel-progreso h2 { font-size: 1.15rem; }
+
+ /* Niveles pills */
+ .nivel-pill { font-size: .65rem; padding: .18rem .5rem; }
+
+ /* Modal de login: padding interno reducido */
+ #login-card { padding: 28px 22px !important; }
+ #login-card h2 { font-size: 19px !important; }
+ #login-codigo, #login-nombre {
+   /* Forzar 16px para evitar zoom en iOS al focus */
+   font-size: 16px !important;
+ }
+}
+
+/* ─── Pantallas muy chicas (iPhone SE, 360-380px) ─── */
+@media (max-width: 380px) {
+
+ .nav-btn { font-size: .55rem; padding: .5rem .2rem .55rem; }
+ .nav-btn svg { width: 20px; height: 20px; }
+ .nav-btn .label-full { display: none; }
+ .nav-btn .label-short { display: inline; }
+
+ #chat-titulo { font-size: .9rem; }
+ .bubble { max-width: 88%; font-size: .85rem; padding: .6rem .75rem; }
+
+ .home-hero h1 { font-size: 1.5rem; }
+ .home-card-emoji { font-size: 1.7rem; }
+ .home-card h3 { font-size: .95rem; }
+
+ /* Selector de modo: si no entra bien, apilar */
+ .modo-toggle { grid-template-columns: 1fr 1fr; }
+ .modo-btn .modo-desc { font-size: .58rem; }
+
+ /* Dashboard: aún más compacto */
+ .score-dashboard .score-numero { font-size: 1.55rem; }
+ .score-estado .num { font-size: .9rem; }
+ .score-estado .lbl { font-size: .55rem; }
+
+ /* Categorías: aún se mantienen 2 columnas pero con menos padding */
+ .categoria-btn { padding: .75rem .4rem; font-size: .82rem; }
+}
+
+/* ─── Modo landscape en móvil: ajustes mínimos ─── */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 480px) {
+ /* En landscape la altura es muy baja: monito más pequeño para ahorrar espacio */
+ .home-mascot { width: 64px; height: 64px; margin-bottom: .35rem; }
+ .home-hero { margin-bottom: 1rem; }
+ .home-hero h1 { font-size: 1.4rem; }
+ .nav-btn { min-height: 48px; }
+ #main { padding-bottom: 52px; }
+}
 </style>
 </head>
 <body>
@@ -746,31 +977,31 @@ body {
  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
  <polyline points="9,22 9,12 15,12 15,22"/>
  </svg>
- INICIO
+ <span class="label-full">INICIO</span><span class="label-short">Inicio</span>
  </button>
  <button class="nav-btn" id="btn-vocab" onclick="setVista('vocab')">
  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
  <path d="M4 6h16M4 12h10M4 18h7"/>
  </svg>
- VOCABULARIO
+ <span class="label-full">VOCABULARIO</span><span class="label-short">Vocab</span>
  </button>
  <button class="nav-btn" id="btn-cuento" onclick="setVista('cuento')">
  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
  <path d="M12 6.25278V19.25M12 6.25278C10.8321 5.47686 9.24649 5 7.5 5C5.75351 5 4.16789 5.47686 3 6.25278V19.25C4.16789 18.4741 5.75351 18 7.5 18C9.24649 18 10.8321 18.4741 12 19.25M12 6.25278C13.1679 5.47686 14.7535 5 16.5 5C18.2465 5 19.8321 5.47686 21 6.25278V19.25C19.8321 18.4741 18.2465 18 16.5 18C14.7535 18 13.1679 18.4741 12 19.25"/>
  </svg>
- CUENTOS
+ <span class="label-full">CUENTOS</span><span class="label-short">Cuentos</span>
  </button>
  <button class="nav-btn" id="btn-conversar" onclick="setVista('conversar')">
  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
  </svg>
- CONVERSAR
+ <span class="label-full">CONVERSAR</span><span class="label-short">Chat</span>
  </button>
  <button class="nav-btn" id="btn-progreso" onclick="setVista('progreso')">
  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
  <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
  </svg>
- MI APRENDIZAJE
+ <span class="label-full">MI APRENDIZAJE</span><span class="label-short">Progreso</span>
  </button>
  </nav>
 
@@ -800,6 +1031,13 @@ body {
  <!-- ── Vista Home (inicio) ─────────────────────────────────── -->
   <div id="home-view">
   <div class="home-hero">
+  <!-- Logo de Pishico arriba del título: visible solo en móvil.
+       En desktop el sidebar ya muestra el logo, así que aquí queda oculto
+       para no duplicar branding. -->
+  <img class="home-mascot"
+       src="images/logo.png"
+       alt="Pishico"
+       onerror="this.style.display='none';">
   <h1>¡Jawekeskarin!</h1>
  <p class="home-subtitle">
  Soy <strong>Pishico</strong>, tu compañero para aprender shipibo-konibo.
@@ -835,14 +1073,42 @@ body {
  <!-- Header -->
  <div id="chat-header">
  <div class="header-icon">
- <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+ <!-- Logo de Pishico: visible solo en móvil (en desktop, el sidebar
+      ya muestra el logo). Si la imagen no carga, queda el SVG. -->
+ <img class="header-icon-mascot"
+      src="images/logo.png"
+      alt="Pishico"
+      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+ <svg class="header-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
  <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
  </svg>
  </div>
- <div>
+ <div style="flex: 1; min-width: 0;">
  <div id="chat-titulo">Aprendizaje de Vocabulario</div>
  <div id="chat-subtitulo">Shipibo-Konibo</div>
  </div>
+ <!-- Botón de cerrar sesión visible solo en móvil. En desktop el control
+      vive en el footer del sidebar; en móvil el sidebar se convierte en
+      bottom nav y este botón asume esa responsabilidad. -->
+ <button id="mobile-logout-btn" onclick="cerrarSesion()"
+   title="Cerrar sesión"
+   aria-label="Cerrar sesión"
+   style="display: none;
+          width: 36px; height: 36px; flex-shrink: 0;
+          background: transparent; border: none; border-radius: 50%;
+          align-items: center; justify-content: center;
+          cursor: pointer; color: var(--text-muted);
+          transition: background .15s ease, color .15s ease;"
+   onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-dark)';"
+   onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+ </button>
  </div>
 
  <!-- Chat view -->
