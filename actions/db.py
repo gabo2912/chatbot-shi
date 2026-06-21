@@ -350,6 +350,111 @@ def info_usuario(codigo: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+# ── Tracking de sesiones de uso ──────────────────────────────────────────────
+#
+# Diseño: cada login crea una fila nueva en `sesiones` con fecha_inicio=ahora
+# y fecha_fin=NULL. Cada interacción del usuario con el chatbot actualiza
+# fecha_fin y duracion_seg. Cuando el usuario hace login de nuevo (otra
+# sesión), se cierra automáticamente la previa con la última actividad
+# conocida.
+#
+# Si el usuario simplemente cierra el navegador, la sesión queda con la
+# fecha_fin de su última interacción, lo cual representa fielmente el tiempo
+# real de uso (no necesitamos un job de cleanup).
+
+def iniciar_sesion(codigo: str) -> Optional[int]:
+    """
+    Crea una sesión nueva para el usuario. La sesión más reciente previa
+    (si existía y nunca tuvo actividad registrada) queda cerrada con
+    duracion_seg=0 por defensividad. La actualidad de cualquier sesión
+    previa con actividad ya está reflejada en su propio fecha_fin.
+
+    Returns:
+        id_sesion de la nueva sesión, o None si falló.
+    """
+    codigo_norm = _normalizar_codigo(codigo)
+    try:
+        ahora = datetime.now()
+        with SessionLocal() as session:
+            # Si la última sesión nunca tuvo actividad (caso raro: login
+            # seguido de logout sin interacción), cerrarla con duración 0.
+            ultima = session.execute(
+                select(Sesion)
+                .where(Sesion.codigo_acceso == codigo_norm)
+                .order_by(Sesion.fecha_inicio.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if ultima and ultima.fecha_fin is None:
+                ultima.fecha_fin = ultima.fecha_inicio
+                ultima.duracion_seg = 0
+
+            # Crear nueva sesión abierta
+            nueva = Sesion(
+                codigo_acceso=codigo_norm,
+                fecha_inicio=ahora,
+                fecha_fin=None,
+                duracion_seg=None,
+            )
+            session.add(nueva)
+            session.commit()
+            session.refresh(nueva)
+            return nueva.id_sesion
+    except Exception as e:
+        logger.error("iniciar_sesion(%s): %s", codigo, e)
+        return None
+
+
+def actualizar_actividad_sesion(codigo: str) -> bool:
+    """
+    Actualiza fecha_fin y duracion_seg de la sesión MÁS RECIENTE del
+    usuario (sin importar si su fecha_fin previo era NULL o no).
+
+    Diseño: la sesión activa siempre es la última creada para el usuario;
+    cada interacción "extiende" su fecha_fin hasta el momento actual. Si
+    el usuario hace login de nuevo, se crea una sesión nueva y la previa
+    queda con la fecha_fin del último mensaje que envió antes del re-login.
+
+    Returns:
+        True si actualizó una sesión existente; False si no encontró
+        ninguna sesión (en ese caso crea una retroactiva con duración 0).
+    """
+    codigo_norm = _normalizar_codigo(codigo)
+    try:
+        ahora = datetime.now()
+        with SessionLocal() as session:
+            ultima = session.execute(
+                select(Sesion)
+                .where(Sesion.codigo_acceso == codigo_norm)
+                .order_by(Sesion.fecha_inicio.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+            if ultima:
+                ultima.fecha_fin = ahora
+                ultima.duracion_seg = int(
+                    (ahora - ultima.fecha_inicio).total_seconds()
+                )
+                session.commit()
+                return True
+
+            # Caso defensivo: usuario interactúa con el bot sin haber pasado
+            # por /login (puede pasar si el frontend retiene el sender_id en
+            # localStorage tras reiniciar el server). Crear sesión retroactiva
+            # con duración 0 para no perder el registro.
+            nueva = Sesion(
+                codigo_acceso=codigo_norm,
+                fecha_inicio=ahora,
+                fecha_fin=ahora,
+                duracion_seg=0,
+            )
+            session.add(nueva)
+            session.commit()
+            return False
+    except Exception as e:
+        logger.error("actualizar_actividad_sesion(%s): %s", codigo, e)
+        return False
+
+
 def listar_usuarios() -> List[Dict[str, Any]]:
     """Devuelve todos los usuarios para reporte. Útil para el investigador."""
     try:

@@ -32,7 +32,10 @@ if str(_actions_path) not in sys.path:
     sys.path.insert(0, str(_actions_path))
 
 try:
-    from db import validar_codigo, activar_codigo, info_usuario
+    from db import (
+        validar_codigo, activar_codigo, info_usuario,
+        iniciar_sesion, actualizar_actividad_sesion,
+    )
     _DB_DISPONIBLE = True
 except Exception as _db_err:
     print(f"[proxy] WARN: db.py no disponible ({_db_err}); /login no funcionará")
@@ -40,6 +43,8 @@ except Exception as _db_err:
     def validar_codigo(c): return False
     def activar_codigo(c, nombre=None): return False
     def info_usuario(c): return None
+    def iniciar_sesion(c): return None
+    def actualizar_actividad_sesion(c): return False
 
 RASA_WEBHOOK = "http://localhost:5005/webhooks/rest/webhook"
 RASA_STATUS  = "http://localhost:5005/status"
@@ -374,6 +379,14 @@ class PishicoProxy(BaseHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": "Error al activar el código"})
                 return
 
+            # Iniciar tracking de sesión de uso (tabla `sesiones`).
+            # Si tenía sesiones abiertas previas, las cierra automáticamente.
+            # No bloquear el login si falla por algún motivo.
+            try:
+                iniciar_sesion(codigo)
+            except Exception as e_sesion:
+                print(f"[proxy] WARN iniciar_sesion({codigo}): {e_sesion}")
+
             info_actual = info_usuario(codigo) or {}
             self._json(200, {
                 "ok": True,
@@ -390,6 +403,18 @@ class PishicoProxy(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         body   = self.rfile.read(length) if length else b""
+
+        # Tracking de actividad: extraer sender_id del body y actualizar
+        # la sesión abierta correspondiente. No bloquear el proxy si falla.
+        if _DB_DISPONIBLE and body:
+            try:
+                body_json = json.loads(body)
+                sender_id = (body_json.get("sender") or "").strip()
+                if sender_id:
+                    actualizar_actividad_sesion(sender_id)
+            except Exception as e_track:
+                # Logueo silencioso para no inundar la consola
+                pass
 
         try:
             req = urllib.request.Request(
