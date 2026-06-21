@@ -19,7 +19,7 @@ import sqlite3
 import sys
 import urllib.request
 import urllib.error
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 # ── Import resiliente del módulo db.py de actions/ ───────────────────────────
@@ -480,7 +480,13 @@ def main():
     print(f"  DB       : {db_info}")
     print("=" * 52)
 
-    server = HTTPServer(("0.0.0.0", PORT), PishicoProxy)
+    # ThreadingHTTPServer atiende cada request en su propio hilo. Es necesario
+    # porque el proxy a Rasa puede tardar (timeout 20s) y con HTTPServer
+    # mono-hilo un único mensaje lento bloqueaba a todos los demás usuarios.
+    # daemon_threads=True permite que Ctrl+C cierre el server sin esperar a
+    # los hilos en curso.
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), PishicoProxy)
+    server.daemon_threads = True
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -474,22 +474,14 @@ def listar_usuarios() -> List[Dict[str, Any]]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Sesiones (cuándo entra y cuándo sale cada usuario)
+# Cierre de sesiones
+# NOTA: iniciar_sesion() y actualizar_actividad_sesion() están definidas más
+# arriba (sección "Tracking de sesiones de uso"). Antes existía aquí una
+# segunda definición simplificada de iniciar_sesion() que, por orden de
+# evaluación en Python, PISABA a la elaborada y anulaba el cierre automático
+# de la sesión previa. Se eliminó para que la única iniciar_sesion vigente sea
+# la que cierra la sesión anterior sin actividad. cerrar_sesion() se conserva.
 # ─────────────────────────────────────────────────────────────────────────────
-
-def iniciar_sesion(codigo: str) -> Optional[int]:
-    """Crea una sesión nueva y devuelve su id. None si falla."""
-    codigo_norm = _normalizar_codigo(codigo)
-    try:
-        with SessionLocal() as session:
-            s = Sesion(codigo_acceso=codigo_norm)
-            session.add(s)
-            session.commit()
-            return s.id_sesion
-    except Exception as e:
-        logger.error("iniciar_sesion(%s): %s", codigo, e)
-        return None
-
 
 def cerrar_sesion(id_sesion: int) -> None:
     """Cierra una sesión registrando fecha_fin y duracion_seg."""
