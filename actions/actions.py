@@ -1496,7 +1496,7 @@ _TPL_FALLBACK = [
 # salida: solo menciona que esos módulos están disponibles en el menú lateral.
 # Esto preserva el aislamiento del modo sin sentirse rígido.
 _TPL_INTENTO_CAMBIO_MODO = [
-    "🌿 Acá en Conversar trabajamos saludos, frases y temas culturales. "
+    "🌿 Aquí en Conversar trabajamos saludos, frases y temas culturales. "
     "Si lo que buscas es eso, lo encuentras en el menú lateral. "
     "¿Te enseño un saludo mientras tanto?",
     "Esa actividad tiene su propio módulo en el menú lateral 🌱. "
@@ -1614,6 +1614,31 @@ _MAPEO_METALINGUISTICO = [
     (("presentar", "presentarme", "soy", "mi nombre"),
      "identidad",
      "Para presentarte en shipibo se dice"),
+
+    # ── Categorías incorporadas con el corpus del hablante (2026) ──
+    # Los nombres de categoría coinciden EXACTAMENTE con los que genera
+    # split_traducciones.py y, por tanto, con la columna `categoria` del
+    # Excel frases_conversacionales.xlsx. Si cambia uno, hay que cambiar el otro.
+    # Nota: la categoría "disculpa" de arriba todavía no tiene frases con
+    # traducción en el corpus; cae al fallback honesto del bloque 4.5 hasta
+    # que el hablante provea equivalentes de "lo siento / perdón".
+    (("por favor", "ser cortes", "ser cortés", "pedir amablemente",
+      "decir por favor", "con cortesia", "con cortesía"),
+     "cortesia",
+     "Para pedir algo con cortesía en shipibo se dice"),
+    (("expresar emocion", "expresar emoción", "expresar emociones",
+      "como me siento", "cómo me siento", "decir que estoy",
+      "expresar lo que siento", "estoy triste", "estoy feliz",
+      "estoy contento", "estoy alegre", "mis emociones"),
+     "emocion",
+     "Para expresar cómo te sientes en shipibo puedes decir"),
+    (("afirmar", "decir que si", "decir que sí", "estar de acuerdo",
+      "confirmar algo", "como afirmo", "cómo afirmo"),
+     "afirmacion",
+     "Para afirmar o decir que sí en shipibo se dice"),
+    (("negar", "decir que no", "como niego", "cómo niego", "rechazar algo"),
+     "negacion",
+     "Para negar o decir que no en shipibo se dice"),
 ]
 
 

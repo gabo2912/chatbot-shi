@@ -1041,7 +1041,7 @@ body {
   <h1>¡Jawekeskarin!</h1>
  <p class="home-subtitle">
  Soy <strong>Pishico</strong>, tu compañero para aprender shipibo-konibo.
- Practicá vocabulario, leé cuentos o conversemos.
+ Practica vocabulario, lee cuentos o conversemos.
  </p>
  <p class="home-question">¿Qué te gustaría hacer hoy?</p>
  </div>
@@ -1050,7 +1050,7 @@ body {
  <button class="home-card" onclick="setVista('vocab')">
  <span class="home-card-emoji">📚</span>
  <h3>Aprender vocabulario</h3>
- <p>Practicá palabras shipibo por categoría con feedback pedagógico.</p>
+ <p>Practica palabras shipibo por categoría con feedback pedagógico.</p>
  </button>
  <button class="home-card" onclick="setVista('cuento')">
  <span class="home-card-emoji">📖</span>
@@ -1065,7 +1065,7 @@ body {
  <button class="home-card" onclick="setVista('progreso')">
  <span class="home-card-emoji">📊</span>
  <h3>Mi aprendizaje</h3>
- <p>Revisá tu progreso por categoría y nivel pedagógico.</p>
+ <p>Revisa tu progreso por categoría y nivel pedagógico.</p>
  </button>
  </div>
  </div>
@@ -1328,9 +1328,10 @@ async function mostrarBibliotecaCuentos() {
  const completo = c.completados >= c.total && c.total > 0;
  const enProgreso = c.completados > 0 && !completo;
  const cssClase = completo ? 'cuento-card completado' : 'cuento-card';
- const palabrasTxt = c.palabras && c.palabras.length
- ? `<div class="cuento-palabras"><strong>Ejercita:</strong> ${c.palabras.join(', ')}</div>`
- : '';
+ // Las palabras objetivo del cuento NO se muestran en la tarjeta:
+ // son las respuestas que luego se le preguntan al usuario y
+ // mostrarlas aquí revelaría la respuesta de antemano.
+ const palabrasTxt = '';
 
  let progresoHTML;
  if (completo) {
@@ -1747,7 +1748,7 @@ async function enviar(texto) {
  } catch (err) {
  quitarTyping();
  addMessage('bot',
- '⚠️ No pude conectar con el servidor. Verificá que Rasa esté corriendo en localhost:5005.',
+ '⚠️ No pude conectar con el servidor. Verifica que Rasa esté corriendo en localhost:5005.',
  []
  );
  }
@@ -1785,7 +1786,7 @@ async function enviarARasa(msg) {
  });
  } catch (_) {
  quitarTyping();
- addMessage('bot', '⚠️ Error de conexión. Verificá que Rasa esté activo.', []);
+ addMessage('bot', '⚠️ Error de conexión. Verifica que Rasa esté activo.', []);
  }
 }
 

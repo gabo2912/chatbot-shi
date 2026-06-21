@@ -35,7 +35,7 @@ FRASES_PATH = os.path.join(
 # Si True, ignora la validación del asesor y carga todas las frases.
 # Útil para desarrollo cuando el asesor aún no entregó las validaciones.
 # En producción debe estar en False para que solo se usen frases validadas.
-MODO_DESARROLLO = True
+MODO_DESARROLLO = False
 
 
 def _normalizar(texto: Any) -> str:
