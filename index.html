@@ -32,6 +32,7 @@ body {
  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
  background: var(--chat-bg);
  height: 100vh;
+ height: 100dvh; /* dvh descuenta la barra del navegador en móvil; evita que el input quede fuera de pantalla */
  display: flex;
  overflow: hidden;
  color: var(--text-dark);
@@ -666,7 +667,11 @@ body {
 
  /* Layout principal: columna en lugar de fila */
  body { flex-direction: column; }
- #app { flex-direction: column !important; height: 100vh; }
+ #app {
+  flex-direction: column !important;
+  height: 100vh;
+  height: 100dvh; /* dvh: descuenta barra de URL móvil para que el input no quede fuera de pantalla */
+ }
 
  /* Sidebar → bottom navigation bar */
  #sidebar {
@@ -717,8 +722,11 @@ body {
  /* Botón flotante de cerrar sesión en el header del chat */
  #mobile-logout-btn { display: flex !important; }
 
- /* Main: padding-bottom para no tapar contenido con la nav bar */
- #main { padding-bottom: 60px; }
+ /* Main: la bottom-nav fija mide ~56px; reservamos ese espacio en el
+    contenedor para que el input-area quede JUSTO encima de la nav y no
+    tapado por ella. Antes el padding iba en #main y dejaba el input oculto. */
+ #main { padding-bottom: 0; }
+ #app { padding-bottom: 56px; }
 
  /* Header del chat: más compacto */
  #chat-header { padding: .65rem .85rem; gap: .65rem; }
@@ -959,7 +967,7 @@ body {
 </div>
 
 <!-- ── App principal ────────────────────────────────────────────── -->
-<div id="app" style="display:flex;width:100%;height:100vh;">
+<div id="app" style="display:flex;width:100%;height:100dvh;">
 
  <!-- Sidebar -->
  <aside id="sidebar">
