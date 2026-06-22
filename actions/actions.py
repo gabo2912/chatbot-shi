@@ -1568,15 +1568,23 @@ def _es_pregunta_cultural(texto: str) -> bool:
 # Lista de preguntas variadas para el botón "Algo de la cultura". Cada vez que
 # se construye el botón se elige una al azar, así el usuario obtiene contenido
 # diverso del PDF de cosmovisión en lugar del mismo chunk siempre.
-_PREGUNTAS_CULTURALES = [
-    "¿qué es el kené?",
-    "cuéntame sobre la ayahuasca",
-    "¿quién es Ronin?",
-    "explícame la cosmovisión shipiba",
-    "¿qué son los icaros?",
-    "háblame de los espíritus del agua",
-    "¿qué significa onanya?",
-    "cuéntame sobre el río Ucayali",
+
+_PREGUNTAS_CULTURALES  = [
+ "¿qué significa Jene, el agua?",
+ "¿qué es Nete, el mundo o cosmos?",
+ "¿qué representa Niwe, el viento?",
+ "¿qué es Jain, el espacio de los espíritus?",
+ "¿quién es Ronin, la anaconda?",
+ "¿qué es el meraya?",
+ "¿qué papel tiene la ayahuasca?",
+ "¿qué hace el onaya/onanya?",
+ "¿qué son los Yoshin, los espíritus?",
+ "¿quiénes son los chaikoni?",
+ "¿qué relación tienen los shipibo con el río Ucayali?",
+ "¿qué es la cocha o laguna?",
+ "¿qué importancia tiene la mujer shipiba?",
+ "¿qué papel cumplen las plantas medicinales?",
+ "¿cómo es la educación intercultural bilingüe?"
 ]
 
 
