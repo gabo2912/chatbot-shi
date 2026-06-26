@@ -5,6 +5,9 @@ intents:
   - despedida
   - pedir_ayuda
   - aprender_vocabulario
+  - aprender_palabras
+  - ofrecer_modo_vocab
+  - palabras_clave_cuento
   - iniciar_cuento
   - responder_actividad
   - pedir_traduccion
@@ -197,6 +200,9 @@ responses:
 
 actions:
   - action_iniciar_vocabulario
+  - action_ofrecer_modo_vocab
+  - action_aprender_vocabulario
+  - action_palabras_clave_cuento
   - action_siguiente_palabra
   - action_evaluar_respuesta_vocab
   - action_dar_pista_vocab

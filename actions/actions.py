@@ -639,7 +639,7 @@ class ActionIniciarVocabulario(Action):
             )
         dispatcher.utter_message(text=mensaje, buttons=[
             {"title": "Dame una pista", "payload": "dame una pista"},
-            {"title": "Saltar palabra",  "payload": "continuar"},
+            {"title": "Saltar palabra",  "payload": "/continuar"},
             {"title": "Cambiar modo", "payload": "/seleccionar_modo"},
         ])
         return [
@@ -768,7 +768,7 @@ class ActionEvaluarRespuestaVocab(Action):
             )
 
             dispatcher.utter_message(text=mensaje + "\n¿Seguimos?", buttons=[
-                {"title": "Siguiente palabra", "payload": "continuar"},
+                {"title": "Siguiente palabra", "payload": "/continuar"},
                 {"title": "Cambiar modo",      "payload": "/seleccionar_modo"},
             ])
             return eventos_base + [
@@ -814,7 +814,7 @@ class ActionEvaluarRespuestaVocab(Action):
             f"No te preocupes, así se aprende. ¿Pasamos a otra palabra?"
         )
         dispatcher.utter_message(text=mensaje, buttons=[
-            {"title": "Siguiente palabra", "payload": "continuar"},
+            {"title": "Siguiente palabra", "payload": "/continuar"},
         ])
         return eventos_base + [
             SlotSet("intentos_palabra", 0),  # reset
@@ -1568,23 +1568,15 @@ def _es_pregunta_cultural(texto: str) -> bool:
 # Lista de preguntas variadas para el botón "Algo de la cultura". Cada vez que
 # se construye el botón se elige una al azar, así el usuario obtiene contenido
 # diverso del PDF de cosmovisión en lugar del mismo chunk siempre.
-
-_PREGUNTAS_CULTURALES  = [
- "¿qué significa Jene, el agua?",
- "¿qué es Nete, el mundo o cosmos?",
- "¿qué representa Niwe, el viento?",
- "¿qué es Jain, el espacio de los espíritus?",
- "¿quién es Ronin, la anaconda?",
- "¿qué es el meraya?",
- "¿qué papel tiene la ayahuasca?",
- "¿qué hace el onaya/onanya?",
- "¿qué son los Yoshin, los espíritus?",
- "¿quiénes son los chaikoni?",
- "¿qué relación tienen los shipibo con el río Ucayali?",
- "¿qué es la cocha o laguna?",
- "¿qué importancia tiene la mujer shipiba?",
- "¿qué papel cumplen las plantas medicinales?",
- "¿cómo es la educación intercultural bilingüe?"
+_PREGUNTAS_CULTURALES = [
+    "¿qué es el kené?",
+    "cuéntame sobre la ayahuasca",
+    "¿quién es Ronin?",
+    "explícame la cosmovisión shipiba",
+    "¿qué son los icaros?",
+    "háblame de los espíritus del agua",
+    "¿qué significa onanya?",
+    "cuéntame sobre el río Ucayali",
 ]
 
 
@@ -2163,3 +2155,284 @@ class ActionResponderConversacion(Action):
             SlotSet("ultima_intencion_conv", tipo_intencion),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
+
+# ════════════════════════════════════════════════════════════════════════════
+# SUB-MODO "APRENDER" (responde a la observación del jurado: separar aprender
+# de evaluar). Al entrar a una categoría, el usuario elige entre APRENDER las
+# palabras (ver es/shp, sin test) o EVALUARSE (el test que ya existía).
+# NO modifica el test (actividad_form) ni ActionIniciarVocabulario.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Carpeta de imágenes servida por server.py en /images/<archivo>.
+# Coincide con IMAGES_DIR de server.py (raíz_proyecto/images).
+_IMAGES_DIR = _os.path.join(
+    _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "images"
+)
+_IMG_EXTS = (".webp", ".jpg", ".jpeg", ".png")
+_IMG_URL_BASE = "/images/"
+
+
+def _slug_palabra(es: str) -> str:
+    """'árbol' -> 'arbol'. Sin tildes, minúsculas, sin espacios."""
+    t = str(es).lower().strip()
+    t = "".join(
+        ch for ch in unicodedata.normalize("NFD", t)
+        if unicodedata.category(ch) != "Mn"
+    )
+    return t.replace(" ", "_")
+
+
+def _ruta_imagen_palabra(es: str):
+    """URL de la imagen si el archivo existe en images/, o None.
+    Transición a imágenes SIN tocar código: basta dejar images/<slug>.webp."""
+    slug = _slug_palabra(es)
+    for ext in _IMG_EXTS:
+        if _os.path.isfile(_os.path.join(_IMAGES_DIR, slug + ext)):
+            return _IMG_URL_BASE + slug + ext
+    return None
+
+
+def _palabra_get(palabra, clave, default=""):
+    """Accede a un campo de palabra, sea dict o tupla del corpus."""
+    if isinstance(palabra, dict):
+        return palabra.get(clave, default)
+    # fallback si el corpus usa otra estructura
+    return getattr(palabra, clave, default)
+
+
+def _tarjeta_aprendizaje(palabra, indice: int, total: int) -> str:
+    es = _palabra_get(palabra, "es", "")
+    shp = _palabra_get(palabra, "shp", "")
+    return (
+        f"📖 *Aprendiendo* ({indice}/{total})\n\n"
+        f"En español:  **{es}**\n"
+        f"En shipibo:  **{shp}**\n\n"
+        f"Memorízala y cuando estés listo, continúa. 🌿"
+    )
+
+
+def _resolver_categoria_vocab(tracker: Tracker):
+    """Extrae la categoría del payload/texto del usuario."""
+    CATS = [c for c in VOCABULARIO.keys() if VOCABULARIO.get(c)]
+    slot_cat = tracker.get_slot("categoria_actual")
+    ents = (tracker.latest_message or {}).get("entities", [])
+    texto = (tracker.latest_message or {}).get("text", "").lower()
+    from_payload = any(
+        e.get("entity") == "categoria_actual" for e in ents
+    ) or '"categoria_actual"' in texto
+    if from_payload and slot_cat in CATS:
+        return slot_cat
+    for cat in CATS:
+        if cat in texto:
+            return cat
+    if slot_cat in CATS:
+        return slot_cat
+    return None
+
+
+class ActionOfrecerModoVocab(Action):
+    """Al entrar a una categoría, ofrece elegir entre APRENDER y EVALUARSE."""
+    def name(self) -> Text:
+        return "action_ofrecer_modo_vocab"
+
+    def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
+            domain: Dict[Text, Any]) -> List[EventType]:
+
+        if not corpus_disponible():
+            dispatcher.utter_message(
+                text="⚠️ El corpus no está disponible. Verificá *palabras.xlsx*."
+            )
+            return []
+
+        categoria = _resolver_categoria_vocab(tracker)
+        if categoria is None:
+            CATS = [c for c in VOCABULARIO.keys() if VOCABULARIO.get(c)]
+            categoria = CATS[0] if CATS else None
+        if not categoria or not VOCABULARIO.get(categoria):
+            dispatcher.utter_message(text="No encontré esa categoría. Probemos con otra.")
+            return []
+
+        total = len(VOCABULARIO.get(categoria, []))
+        dispatcher.utter_message(
+            text=(
+                f"Entraste a la categoría *{categoria}* ({total} palabras).\n\n"
+                f"¿Qué prefieres hacer?"
+            ),
+            buttons=[
+                {"title": "📖 Aprender primero",
+                 "payload": f'/aprender_palabras{{"categoria_actual":"{categoria}"}}'},
+                {"title": "✍️ Evaluarme",
+                 "payload": f'/aprender_vocabulario{{"categoria_actual":"{categoria}"}}'},
+            ],
+        )
+        return [
+            SlotSet("flujo_actual", "vocabulario"),
+            SlotSet("categoria_actual", categoria),
+            SlotSet("fragmento_actual", 0),  # reinicia el cursor de aprendizaje
+        ]
+
+
+class ActionAprenderVocabulario(Action):
+    """Recorre las palabras de la categoría como tarjetas de estudio (es↔shp)."""
+    def name(self) -> Text:
+        return "action_aprender_vocabulario"
+
+    def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
+            domain: Dict[Text, Any]) -> List[EventType]:
+
+        if not corpus_disponible():
+            dispatcher.utter_message(text="⚠️ El corpus no está disponible.")
+            return []
+
+        categoria = _resolver_categoria_vocab(tracker) or tracker.get_slot("categoria_actual")
+        palabras = VOCABULARIO.get(categoria, [])
+        if not palabras:
+            dispatcher.utter_message(text="No encontré palabras en esa categoría.")
+            return []
+
+        try:
+            idx = int(tracker.get_slot("fragmento_actual") or 0)
+        except (TypeError, ValueError):
+            idx = 0
+
+        ents = (tracker.latest_message or {}).get("entities", [])
+        cambio_categoria = any(e.get("entity") == "categoria_actual" for e in ents)
+        if cambio_categoria:
+            idx = 0
+
+        if idx >= len(palabras):
+            dispatcher.utter_message(
+                text=(
+                    f"¡Terminaste de aprender la categoría *{categoria}*! 🎉\n"
+                    f"¿Quieres poner a prueba lo que aprendiste?"
+                ),
+                buttons=[
+                    {"title": "✍️ Evaluarme ahora",
+                     "payload": f'/aprender_vocabulario{{"categoria_actual":"{categoria}"}}'},
+                    {"title": "📖 Aprender otra categoría",
+                     "payload": "/aprender_vocabulario"},
+                ],
+            )
+            return [SlotSet("fragmento_actual", 0)]
+
+        palabra = palabras[idx]
+        texto = _tarjeta_aprendizaje(palabra, idx + 1, len(palabras))
+        img_url = _ruta_imagen_palabra(_palabra_get(palabra, "es", ""))
+
+        es_ultima = (idx + 1) >= len(palabras)
+        botones = []
+        if es_ultima:
+            # Última palabra: solo un botón para pasar al test (sin redundancia).
+            botones.append({
+                "title": "✅ Terminar y evaluarme",
+                "payload": f'/aprender_vocabulario{{"categoria_actual":"{categoria}"}}',
+            })
+        else:
+            botones.append({"title": "Siguiente palabra ▶", "payload": "/aprender_palabras"})
+            botones.append({"title": "✍️ Saltar al test",
+                            "payload": f'/aprender_vocabulario{{"categoria_actual":"{categoria}"}}'})
+
+        if img_url:
+            dispatcher.utter_message(text=texto, image=img_url, buttons=botones)
+        else:
+            dispatcher.utter_message(text=texto, buttons=botones)
+
+        return [
+            SlotSet("flujo_actual", "vocabulario"),
+            SlotSet("categoria_actual", categoria),
+            SlotSet("fragmento_actual", idx + 1),
+            SlotSet("palabra_actual", _palabra_get(palabra, "es")),
+        ]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PALABRAS CLAVE DEL CUENTO (responde al jurado: leer bilingüe primero, evaluar
+# después). Antes de empezar un cuento, muestra las palabras shipibo que el
+# usuario va a encontrar, con su traducción. Luego el cuento corre con sus
+# preguntas e intentos SIN CAMBIOS. Solo aparece al arrancar desde cero.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Mini-diccionario de respaldo: traducciones de palabras que aparecen en los
+# cuentos pero NO están en el vocabulario principal. Solo se usa para mostrar
+# el "= español" en la pantalla de palabras clave; no afecta la evaluación ni
+# el vocabulario practicable. Traducciones tomadas de los archivos paralelos
+# es/shp originales de cada cuento.
+_TRAD_CUENTOS = {
+    "ikonrake":   "gracias",
+    "nenobi":     "aquí",
+    "nexai":      "amarrar",
+    "tenten":     "jalar",
+    "atsa xeati": "tomar masato",
+    "teeti":      "trabajar",
+    "xoboati":    "construir la casa",
+    "poxati":     "tumbar",
+    "repinti":    "puerto",
+}
+
+
+class ActionPalabrasClaveCuento(Action):
+    """Muestra la lista bilingüe de palabras clave antes de iniciar el cuento."""
+    def name(self) -> Text:
+        return "action_palabras_clave_cuento"
+
+    def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
+            domain: Dict[Text, Any]) -> List[EventType]:
+
+        if not cuentos_disponibles():
+            dispatcher.utter_message(
+                text="⚠️ No hay cuentos cargados."
+            )
+            return []
+
+        cuento_elegido = tracker.get_slot("cuento_actual") or _cuento_id_desde_entidades(tracker)
+        cuento_id = cuento_elegido or CUENTO_PREDETERMINADO
+        if not cuento_por_id(cuento_id):
+            cuento_id = CUENTO_PREDETERMINADO
+
+        # Si el usuario ya tiene progreso en este cuento, NO mostrar palabras
+        # clave otra vez: ir directo a retomar el cuento.
+        ya_empezado = ultimo_fragmento_acertado(tracker.sender_id, cuento_id)
+        if ya_empezado is not None:
+            return [FollowupAction("action_iniciar_cuento")]
+
+        # Recolectar las palabras meta (respuesta_esperada) de todos los fragmentos
+        total = _cuento_total_fragmentos(cuento_id) or 0
+        palabras = []
+        for i in range(total):
+            frag = _cuento_fragmento(cuento_id, i)
+            if not frag:
+                continue
+            resp = frag.get("respuesta_esperada")
+            if resp:
+                # Buscar traducción: primero en el vocabulario (DICCIONARIO es↔shp);
+                # si no está, usar el mini-diccionario de respaldo de palabras de
+                # cuentos (_TRAD_CUENTOS) para que TODA palabra muestre su "= es".
+                es = DICCIONARIO.get(resp.lower(), "")
+                if not es:
+                    es = _TRAD_CUENTOS.get(resp.lower().strip(), "")
+                palabras.append((resp, es))
+
+        titulo = _cuento_titulo(cuento_id)
+
+        if not palabras:
+            # El cuento no tiene palabras meta: arrancar directo
+            return [FollowupAction("action_iniciar_cuento")]
+
+        # Construir la tarjeta de palabras clave
+        lineas = [f"📖 Antes de leer **{titulo}**, estas son las palabras clave "
+                  f"que vas a encontrar:\n"]
+        for shp, es in palabras:
+            if es:
+                lineas.append(f"• **{shp}** = {es}")
+            else:
+                lineas.append(f"• **{shp}**")
+        lineas.append("\nLéelas con calma. Luego, durante el cuento, te las "
+                      "preguntaré. 🌿")
+
+        dispatcher.utter_message(
+            text="\n".join(lineas),
+            buttons=[
+                {"title": "📖 Comenzar el cuento", "payload": "/iniciar_cuento"},
+            ],
+        )
+        return [SlotSet("cuento_actual", cuento_id)]

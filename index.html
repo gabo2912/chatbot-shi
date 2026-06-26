@@ -32,7 +32,6 @@ body {
  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
  background: var(--chat-bg);
  height: 100vh;
- height: 100dvh; /* dvh descuenta la barra del navegador en móvil; evita que el input quede fuera de pantalla */
  display: flex;
  overflow: hidden;
  color: var(--text-dark);
@@ -667,11 +666,7 @@ body {
 
  /* Layout principal: columna en lugar de fila */
  body { flex-direction: column; }
- #app {
-  flex-direction: column !important;
-  height: 100vh;
-  height: 100dvh; /* dvh: descuenta barra de URL móvil para que el input no quede fuera de pantalla */
- }
+ #app { flex-direction: column !important; height: 100vh; }
 
  /* Sidebar → bottom navigation bar */
  #sidebar {
@@ -722,11 +717,8 @@ body {
  /* Botón flotante de cerrar sesión en el header del chat */
  #mobile-logout-btn { display: flex !important; }
 
- /* Main: la bottom-nav fija mide ~56px; reservamos ese espacio en el
-    contenedor para que el input-area quede JUSTO encima de la nav y no
-    tapado por ella. Antes el padding iba en #main y dejaba el input oculto. */
- #main { padding-bottom: 0; }
- #app { padding-bottom: 56px; }
+ /* Main: padding-bottom para no tapar contenido con la nav bar */
+ #main { padding-bottom: 60px; }
 
  /* Header del chat: más compacto */
  #chat-header { padding: .65rem .85rem; gap: .65rem; }
@@ -967,7 +959,7 @@ body {
 </div>
 
 <!-- ── App principal ────────────────────────────────────────────── -->
-<div id="app" style="display:flex;width:100%;height:100dvh;">
+<div id="app" style="display:flex;width:100%;height:100vh;">
 
  <!-- Sidebar -->
  <aside id="sidebar">
@@ -1046,7 +1038,7 @@ body {
        src="images/logo.png"
        alt="Pishico"
        onerror="this.style.display='none';">
-  <h1>¡Bekanwe!</h1>
+  <h1>¡Jawekeskarin!</h1>
  <p class="home-subtitle">
  Soy <strong>Pishico</strong>, tu compañero para aprender shipibo-konibo.
  Practica vocabulario, lee cuentos o conversemos.
@@ -1411,7 +1403,7 @@ async function iniciarCuento(cuentoId) {
  body: JSON.stringify({ sender: senderID, message: '/restart' })
  });
  } catch(_) {}
- const payload = `/iniciar_cuento{"cuento_actual":"${cuentoId}"}`;
+ const payload = `/palabras_clave_cuento{"cuento_actual":"${cuentoId}"}`;
  await enviarARasa(payload);
 }
 
@@ -1443,7 +1435,8 @@ async function mostrarSelectorCategoria() {
  // Fallback mínimo si el endpoint falla: emojis por defecto
  const FALLBACK_EMOJIS = {
  naturaleza:'🌿', animales:'🦜', cuerpo:'🫀',
- colores:'🎨', objetos:'🏺', 'números':'🔢'
+ colores:'🎨', objetos:'🏺', 'números':'🔢',
+ acciones:'🏃', personas:'👨‍👩‍👧', cualidades:'✨'
  };
  categorias = Object.entries(FALLBACK_EMOJIS).map(([cat, emoji]) => ({
  categoria: cat, emoji: emoji, total: '?', porcentaje: 0
@@ -1535,7 +1528,7 @@ async function iniciarVocabulario(categoria) {
  body: JSON.stringify({ sender: senderID, message: '/restart' })
  });
  } catch(_) {}
- await enviarARasa(`/aprender_vocabulario{"categoria_actual":"${categoria}"}`);
+ await enviarARasa(`/ofrecer_modo_vocab{"categoria_actual":"${categoria}"}`);
 }
 
 /**
@@ -1668,7 +1661,17 @@ function addMessage(role, text, buttons = []) {
  b.textContent = btn.title;
  b.onclick = () => {
  qr.innerHTML = '';
- enviar(btn.payload || btn.title);
+ const p = btn.payload || btn.title;
+ // Antes de EVALUAR, limpiar el chat para que el usuario no copie las
+ // palabras que acaba de ver en el modo aprender o en las palabras clave.
+ // Transiciones a evaluación: /aprender_vocabulario (test de vocab) y
+ // /iniciar_cuento (empezar el cuento tras ver palabras clave).
+ const esTransicionEvaluacion =
+   p.startsWith('/aprender_vocabulario') || p.startsWith('/iniciar_cuento');
+ if (esTransicionEvaluacion) {
+   document.getElementById('mensajes').innerHTML = '';
+ }
+ enviar(p);
  };
  qr.appendChild(b);
  });
@@ -1887,6 +1890,12 @@ function renderDashboardScoring(scoring) {
     <div class="score-estado nuevo">
      <span class="num">${nue}</span><span class="lbl">Nuevas</span>
     </div>
+   </div>
+   <div class="score-leyenda" style="margin-top:.6rem;font-size:.72rem;color:#777;line-height:1.5;text-align:center;">
+    <span style="color:#2e7d32;">●</span> Dominada: 71–100 &nbsp;·&nbsp;
+    <span style="color:#f57f17;">●</span> Aprendiendo: 31–70 &nbsp;·&nbsp;
+    <span style="color:#888;">●</span> Nueva: 0–30
+    <br><span style="font-size:.68rem;">El score pondera producir (×2) más que reconocer (×1), y descuenta pistas y errores.</span>
    </div>
    ${tasas.length ? `<div class="score-tasas">${tasas.join('')}</div>` : ''}
   </div>

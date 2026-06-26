@@ -272,3 +272,39 @@ rules:
     steps:
       - intent: seleccionar_modo
       - action: action_seleccionar_modo
+  - rule: Recorrer palabras en modo aprender
+    condition:
+      - active_loop: null
+    steps:
+      - intent: aprender_palabras
+      - action: action_aprender_vocabulario
+
+  - rule: Ofrecer aprender o evaluar al entrar a una categoria
+    condition:
+      - active_loop: null
+    steps:
+      - intent: ofrecer_modo_vocab
+      - action: action_ofrecer_modo_vocab
+
+  - rule: Evaluarme desde el submodo aprender (flujo ya en vocabulario)
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: vocabulario
+    steps:
+      - intent: aprender_vocabulario
+      - action: action_iniciar_vocabulario
+
+  - rule: Mostrar palabras clave antes del cuento
+    condition:
+      - active_loop: null
+    steps:
+      - intent: palabras_clave_cuento
+      - action: action_palabras_clave_cuento
+
+  - rule: Comenzar cuento tras ver palabras clave (cualquier flujo libre)
+    condition:
+      - active_loop: null
+    steps:
+      - intent: iniciar_cuento
+      - action: action_iniciar_cuento

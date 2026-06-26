@@ -1,656 +1,287 @@
-# ═══════════════════════════════════════════════════════════════════════════
-# nlu.yml — Chatbot Educativo Shipibo-Konibo  ·  Training v3 (Camino 2)
-# ═══════════════════════════════════════════════════════════════════════════
-#
-# CAMBIOS RESPECTO A v2 (refinamiento Camino A, pre-bilingüismo):
-#
-# 1. responder_actividad: se ELIMINARON las 105 palabras sueltas (54 es + 51 shp).
-#    Eran el ~40% de todo el training y convertían al intent en un "imán" que
-#    capturaba cualquier input corto (hi, wenas -> responder_actividad @1.0).
-#    Se conservan/expanden SOLO patrones de oración ("respuesta embebida").
-#    El corpus validado por el especialista NO se pierde: pasa a la lookup
-#    table `palabra_objetivo` al final del archivo (ver nota técnica).
-#
-# 2. Patrones de respuesta embebida añadidos ("elijo la opción X",
-#    "selecciono la X", "podría ser X", "respondo que es X", ...). Son cadenas
-#    NUEVAS, estructuralmente paralelas a las del test pero no idénticas,
-#    para medir generalización real sin recontaminar train/test.
-#
-# 3. Rebalanceo: +ejemplos a intents pequeños. Ratio máx/mín pasó de ~14:1 a ~4:1.
-#
-# 4. Desambiguaciones de taxonomía (decisiones de diseño, ver chat):
-#    - pedir_ayuda QUEDA como dueño de "confundido / atorado / bloqueado /
-#      me cuesta". Se quitaron de expresar_emocion "me cuesta mucho" y
-#      "me siento confundido" (contradecían el test). expresar_emocion
-#      queda solo con estados afectivos puros.
-#    - saludo dejó de contener peticiones de aprendizaje
-#      ("quiero aprender shipibo", "quiero practicar shipibo" -> aprender_vocabulario).
-#    - "quiero continuar" movido de confirmacion -> continuar.
-#    - "luego sigo" estaba DUPLICADO en despedida y pausar: queda solo en pausar.
-#    - negacion: se quitaron "no sé" y "no sé la respuesta" (no son negaciones;
-#      causaban colisión con pedir_ayuda/responder_actividad).
-#
-# NOTA: el test_nlu_v2.yml NO se modificó. Sigue siendo conjunto independiente.
-# ═══════════════════════════════════════════════════════════════════════════
-
 version: "3.1"
 
-nlu:
+rules:
+  # ─────────────────────────────────────────────
+  # Reglas globales simples: solo se activan si NO hay form activo
+  # ─────────────────────────────────────────────
+  - rule: Saludar y ofrecer opciones
+    condition:
+      - active_loop: null
+    steps:
+      - intent: saludo
+      - action: utter_saludo
+      - action: utter_ofrecer_opciones
 
-- intent: saludo
-  examples: |
-    - hola
-    - holi
-    - hey
-    - buenas
-    - buenos días
-    - buenas tardes
-    - buenas noches
-    - que tal
-    - saludos
-    - holaaa
-    - cómo estás
-    - cómo te encuentras
-    - buen día
-    - hola bot
-    - qué onda
-    - estás ahí
-    - estás conectado
-    - hola hola
-    - buenos días bot
-    - ya estoy aquí
-    - regresé
-    - de vuelta
-    - ¡Hola! ¿Cómo estás?
-    - ¡Hola! ¿Qué tal estás?
-    # --- v3: saludos cortos / coloquiales (combaten hi/wenas -> responder_actividad)
-    - wena
-    - ola
-    - hello
-    - holaa
-    - epa
-    - buenas a todos
-    - buenas bot
-    - qué tal bot
-    - qué dice
-    - saludos a ti
-    - buenos días chatbot
-    - aquí estoy de nuevo
-    - volví
+  - rule: Despedirse
+    condition:
+      - active_loop: null
+    steps:
+      - intent: despedida
+      - action: utter_despedida
 
-- intent: despedida
-  examples: |
-    - adiós
-    - adios
-    - chao
-    - hasta luego
-    - nos vemos
-    - terminar por ahora
-    - ya no quiero continuar
-    - gracias eso es todo
-    - me retiro
-    - salir
-    - cerrar
-    - hasta pronto
-    - bye
-    - ¡Hasta luego!
-    # --- v3
-    - me voy
-    - hasta la próxima
-    - terminemos aquí
-    - fue suficiente por hoy
-    - nos vemos luego
+  - rule: Agradecer
+    condition:
+      - active_loop: null
+    steps:
+      - intent: agradecer
+      - action: utter_agradecimiento
 
-- intent: pedir_ayuda
-  examples: |
-    - ayúdame
-    - ayudame
-    - ayuda
-    - no entiendo
-    - explícame
-    - explicame
-    - necesito ayuda
-    - no sé qué responder
-    - dame una pista
-    - dame un ejemplo
-    - puedes ayudarme
-    - no comprendo
-    - necesito una explicación
-    - auxilio
-    - cómo funciona esto
-    - estoy perdido
-    - estoy perdida
-    - necesito una pista
-    - me podrías ayudar
-    - cómo se hace esto
-    - no me sale
-    - no se
-    - que hago
-    - ¿Podrías por favor ayudarme?
-    - ¡Ayuda!
-    - Necesitaba ayuda.
-    - Necesitamos ayuda.
-    - ¡Necesito ayuda!
-    - Espero tu ayuda.
-    - ¿Puedes ayudarme?
-    - Podría necesitar tu ayuda.
-    # --- v3: clúster "atascado / confundido" (pedir_ayuda es el dueño de esto)
-    - no entendí
-    - estoy trabado
-    - me siento perdido
-    - me siento perdida
-    - no me queda claro
-    - esto me confunde
-    - se me complica
-    - no logro entenderlo
-    - me trabé
-    - ando perdido
-    - esto está difícil para mí
-    - tengo dudas
-    - tengo una duda
-    - no me sale esto
-    - necesito una mano
-    - dame una pista para esto
-    - no sé qué hacer aquí
-    - no hallo la respuesta
-    - no doy con la respuesta
-    - no se me ocurre nada
-    - no entiendo esta pregunta
-    - ayúdame con esta pregunta
-    - puedes darme una pista
-    - estoy en blanco
-    - no puedo con esto
-    - qué debo hacer
-    - guíame por favor
+  - rule: Pausar fuera de actividad
+    condition:
+      - active_loop: null
+    steps:
+      - intent: pausar
+      - action: utter_pausar
 
-- intent: aprender_vocabulario
-  examples: |
-    - quiero aprender vocabulario
-    - quiero aprender palabras
-    - enséñame una palabra
-    - enséñame una palabra
-    - quiero practicar vocabulario
-    - aprender palabras en shipibo
-    - quiero ver palabras nuevas
-    - quiero seguir con vocabulario
-    - muéstrame una palabra
-    - muestrame una palabra
-    - quiero practicar palabras
-    - vocabulario
-    - palabras nuevas
-    - aprender más palabras
-    - enséñame palabras nuevas
-    # --- v3: peticiones de aprendizaje movidas desde saludo
-    - quiero aprender shipibo
-    - quiero practicar shipibo
-    # --- v3: peticiones por categoría
-    - quiero aprender los colores
-    - enséñame los animales
-    - enséñame palabras de la naturaleza
-    - veamos la categoría de animales
-    - practiquemos vocabulario del cuerpo
-    - quiero la categoría de objetos
-    - vamos con la categoría colores
-    - ahora quiero colores
-    - categoría naturaleza por favor
-    - muéstrame palabras de animales
-    - estudiemos vocabulario nuevo
-    - exploremos palabras nuevas
-    - probemos con vocabulario del cuerpo
-    - quiero ver la categoría animales
-    - quiero aprender los números
-    - enséñame los números
-    - vamos con la categoría números
-    - quiero la categoría números
-    - practiquemos los números
-    - muéstrame palabras de números
-    - quiero ver números
-    - probemos con números
+  - rule: Ayuda general fuera de actividad
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: pedir_ayuda
+      - action: utter_ayuda_general
 
-- intent: iniciar_cuento
-  examples: |
-    - quiero un cuento
-    - quiero escuchar una historia
-    - quiero aprender con un cuento
-    - inicia el cuento
-    - quiero explorar una historia
-    - cuéntame una historia
-    - cuentame una historia
-    - cuéntame un cuento
-    - sigamos el cuento
-    - quiero continuar la historia
-    - historia
-    - cuento
-    - empezar el cuento
-    - quiero leer la historia
+  - rule: Traduccion fuera de actividad
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: pedir_traduccion
+      - action: action_traducir
 
-# ───────────────────────────────────────────────────────────────────────────
-# responder_actividad: dispara la acción de evaluación.
-#
-# CAMBIO v3 (Camino 2): se eliminaron las 105 palabras sueltas del corpus.
-# Un intent compuesto mayoritariamente por tokens aislados se vuelve un imán
-# que captura cualquier input corto. El intent ahora aprende SOLO la ESTRUCTURA
-# del acto de responder ("creo que es X", "elijo la opción Y", ...).
-#
-# El corpus léxico validado por el especialista lingüístico se conserva en la
-# lookup table `palabra_objetivo` (final del archivo) para extracción de
-# entidad. La acción de evaluación sigue leyendo tracker.latest_message['text'].
-#
-# COMPLEMENTO REQUERIDO (fuera de este archivo): durante una actividad activa,
-# mapear el slot de respuesta con `from_text` en el form, para que una respuesta
-# de UNA palabra (p. ej. "onpax") no dependa de la clasificación de intent.
-# ───────────────────────────────────────────────────────────────────────────
-- intent: responder_actividad
-  examples: |
-    - sí conozco la palabra
-    - creo que es agua
-    - es el agua
-    - es onpax
-    - mi respuesta es onpax
-    - pienso que es pez
-    - probablemente sea casa
-    - es mano en shipibo
-    - la respuesta es onpax
-    # --- v3: patrones de respuesta embebida (estructura "respuesta dentro de frase")
-    - creo que la respuesta es agua
-    - pienso que la respuesta es el sol
-    - mi respuesta sería la casa
-    - diría que es el río
-    - yo respondo perro
-    - contestaría gato
-    - elijo la opción a
-    - escojo la opción c
-    - marco la opción b
-    - voy a elegir la a
-    - selecciono la opción a
-    - mi elección es la b
-    - podría ser bari
-    - quizás sea la nube
-    - a lo mejor es el pez
-    - voy con la palabra mono
-    - digo que es el ave
-    - la palabra que elijo es casa
-    - mi opción es la c
-    - pongo la opción b
-    - respondo con árbol
-    - creo que es la luna
-    - estoy seguro de que es onpax
-    - respondo que es agua
-    - para mí es el sol
-    - seguramente es la casa
-    - mi respuesta final es pez
-    - yo diría río
-    - esa palabra es niwe
-    - la respuesta correcta es jihui
+  - rule: Fuera de tema sin flujo activo
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: out_of_scope
+      - action: utter_redirigir_educativo
 
-- intent: pedir_traduccion
-  examples: |
-    - cómo se dice agua
-    - cómo se dice agua en shipibo
-    - traduce esta palabra
-    - qué significa esto
-    - cómo se dice en shipibo
-    - quiero traducir una palabra
-    - traduce al español
-    - cómo digo profesor
-    - quiero traducir
-    - dime cómo se dice
-    - qué significa esta palabra
-    - qué significa onpax
-    - cómo se dice árbol
-    - traduce
-    - cómo se dice esto en shipibo
-    - traducción
+  # ─────────────────────────────────────────────
+  # Flujo básico 1: vocabulario
+  # ─────────────────────────────────────────────
+  - rule: Iniciar vocabulario desde estado libre
+    # La activación del form se hace DESDE la acción (FollowupAction) cuando
+    # ya hay un modo de práctica elegido. Si es la primera vez del usuario,
+    # la acción muestra el selector de modo y NO activa el form todavía.
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: aprender_vocabulario
+      - action: action_iniciar_vocabulario
 
-- intent: pedir_repeticion
-  examples: |
-    - repite
-    - otra vez
-    - vuelve a decirlo
-    - no lo vi bien
-    - repite la palabra
-    - repite el ejemplo
-    - puedes repetir
-    - dime otra vez
-    - muéstralo de nuevo
-    - repite por favor
-    - de nuevo
-    - una vez más
-    - ¿Podrías repetirlo, por favor?
-    # --- v3
-    - no escuché bien
-    - repítelo
-    - puedes decirlo otra vez
-    - no entendí, repite
+  - rule: Evaluar respuesta de vocabulario al cerrar form
+    condition:
+      - active_loop: actividad_form
+      - slot_was_set:
+          - flujo_actual: vocabulario
+    steps:
+      - action: actividad_form
+      - active_loop: null
+      - action: action_evaluar_respuesta_vocab
 
-- intent: confirmacion
-  examples: |
-    - sí
-    - si
-    - claro
-    - correcto
-    - está bien
-    - de acuerdo
-    - ok
-    - perfecto
-    - entendido
-    - dale
-    - sip
-    - vale
-    - así es
-    # --- v3 (se quitó "vamos" por ambigüedad con saludo; "quiero continuar" -> continuar)
-    - exacto
-    - eso es
-    - claro que sí
-    - por supuesto
+  - rule: Evaluar respuesta de cuento al cerrar form
+    condition:
+      - active_loop: actividad_form
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - action: actividad_form
+      - active_loop: null
+      - action: action_evaluar_respuesta_cuento
 
-- intent: negacion
-  examples: |
-    - no
-    - todavía no
-    - no quiero
-    - incorrecto
-    - mejor no
-    - ahora no
-    - no gracias
-    - no deseo continuar
-    - no por ahora
-    - nope
-    # --- v3 (se quitaron "no sé" y "no sé la respuesta": no son negaciones)
-    - para nada
-    - no me interesa
-    - negativo
-    - claro que no
-    - eso no
-    - no es así
-    - prefiero que no
-    - mejor en otro momento
+  - rule: Siguiente palabra de vocabulario
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: vocabulario
+    steps:
+      - intent: continuar
+      - action: action_siguiente_palabra
+      - action: actividad_form
+      - active_loop: actividad_form
 
-- intent: expresar_emocion
-  examples: |
-    - estoy feliz
-    - tengo miedo
-    - estoy cansado
-    - estoy cansada
-    - me siento bien
-    - estoy aburrido
-    - estoy aburrida
-    - estoy emocionado
-    - estoy emocionada
-    - me siento triste
-    - estoy frustrado
-    # --- v3: solo estados afectivos puros (se quitaron "me cuesta mucho" y
-    #         "me siento confundido" -> pertenecen a pedir_ayuda)
-    - estoy contento
-    - estoy contenta
-    - me siento nervioso
-    - estoy alegre
-    - me da pena
-    - estoy preocupado
-    - me siento motivado
-    - estoy tranquilo
-    - me siento orgulloso
+  - rule: Pista de vocabulario fuera del form
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: vocabulario
+    steps:
+      - intent: pedir_ayuda
+      - action: action_dar_pista_vocab
+      - action: actividad_form
+      - active_loop: actividad_form
 
-- intent: agradecer
-  examples: |
-    - gracias
-    - muchas gracias
-    - te agradezco
-    - gracias por la ayuda
-    - mil gracias
-    - gracias bot
-    - mil gracias por enseñarme
-    - Gracias a ti.
-    - Gracias en avance.
-    - ¡Gracias nuevamente!
-    - Muchísimas gracias.
-    - Quería decir gracias.
-    # --- v3
-    - te lo agradezco
-    - gracias por todo
-    - qué amable, gracias
-    - gracias por enseñarme
+  - rule: Repetir vocabulario fuera del form
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: vocabulario
+    steps:
+      - intent: pedir_repeticion
+      - action: action_repetir_ultima_palabra
+      - action: actividad_form
+      - active_loop: actividad_form
 
-- intent: continuar
-  examples: |
-    - continúa
-    - continua
-    - siguiente
-    - avancemos
-    - otra palabra
-    - sigamos
-    - quiero seguir
-    - vamos con otra
-    - pasa al siguiente
-    - continuemos
-    - quiero avanzar
-    - sigamos adelante
-    - próxima palabra
-    - dame otra
-    # --- v3 ("quiero continuar" movido desde confirmacion)
-    - quiero continuar
-    - sigamos ya
-    - bueno sigamos
-    - listo sigamos
-    - ok sigamos
-    - vale continuemos
-    - dame más
-    - quiero más
-    - más ejercicios
-    - más actividades
-    - quiero otra actividad
-    - una actividad más
-    - pásame la siguiente
-    - vamos a la siguiente
-    - continuemos por favor
-    - adelante con la siguiente
-    - dame el siguiente
-    - sigue por favor
+  - rule: Pausar vocabulario fuera del form
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: vocabulario
+    steps:
+      - intent: pausar
+      - action: utter_pausar
 
-- intent: pausar
-  examples: |
-    - espera
-    - detente
-    - luego sigo
-    - pausa
-    - dame un momento
-    - aguarda
-    - detente un momento
-    - regreso luego
-    # --- v3
-    - un momento por favor
-    - espérame
-    - dame un segundo
-    - necesito una pausa
-    - para un poco
-    - quiero pausar
-    - ya regreso
-    - un segundo
-    - haz una pausa
-    - déjame pensar un momento
+  # ─────────────────────────────────────────────
+  # Flujo básico 2: cuento interactivo
+  # Se inicia solo desde estado libre. No hay cambio automático desde vocabulario.
+  # ─────────────────────────────────────────────
+  - rule: Iniciar cuento desde estado libre
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: ninguno
+    steps:
+      - intent: iniciar_cuento
+      - action: action_iniciar_cuento
+      - slot_was_set:
+          - flujo_actual: cuento
 
-- intent: out_of_scope
-  examples: |
-    - cuéntame un chiste
-    - qué hora es
-    - quiero jugar fútbol
-    - háblame de otra cosa
-    - quién eres
-    - abre youtube
-    - dame una receta
-    - quiero escuchar música
-    - calcula mi tarea
-    - háblame de películas
-    - cuál es la capital de Perú
-    - qué clima hace hoy
-    - resuélveme un problema de matemáticas
+  - rule: Responder pregunta del cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - intent: responder_actividad
+      - action: action_evaluar_respuesta_cuento
 
-# ═══════════════════════════════════════════════════════════════════════════
-# LOOKUP TABLE — corpus léxico validado por especialista lingüístico
-# ═══════════════════════════════════════════════════════════════════════════
-# Estas palabras YA NO son ejemplos del intent responder_actividad (causaban
-# el efecto imán). Quedan aquí como entidad `palabra_objetivo` para que la
-# acción de evaluación las reconozca durante una actividad.
-#
-# REQUISITO DE CONFIG (config.yml): el pipeline debe incluir
-# `RegexEntityExtractor` (y `RegexFeaturizer`) para que la lookup table se use.
-#   - name: RegexEntityExtractor
-#     use_lookup_tables: true
-# Si el pipeline no lo incluye, la lookup table simplemente se ignora.
-# ═══════════════════════════════════════════════════════════════════════════
-- lookup: palabra_objetivo
-  examples: |
-    - agua
-    - sol
-    - árbol
-    - luna
-    - río
-    - viento
-    - lluvia
-    - nube
-    - fuego
-    - tierra
-    - noche
-    - pez
-    - tortuga
-    - perro
-    - mono
-    - ave
-    - serpiente
-    - jaguar
-    - caimán
-    - pato
-    - gallina
-    - mariposa
-    - venado
-    - gato
-    - mano
-    - boca
-    - ojo
-    - cabeza
-    - pie
-    - corazón
-    - cabello
-    - diente
-    - nariz
-    - oreja
-    - brazo
-    - pierna
-    - blanco
-    - negro
-    - azul
-    - rojo
-    - verde
-    - amarillo
-    - canoa
-    - casa
-    - olla
-    - tela
-    - comida
-    - ropa
-    - plato
-    - libro
-    - escuela
-    - onpax
-    - bari
-    - jihui
-    - oshi
-    - hene
-    - niwe
-    - hui
-    - wischni
-    - chi
-    - mai
-    - yamé
-    - yapa
-    - shahue
-    - ochiti
-    - hiso
-    - isa
-    - rono
-    - kape
-    - cape
-    - ana
-    - atapa
-    - penpen
-    - chaso
-    - misho
-    - meno
-    - kesha
-    - wero
-    - mapo
-    - tae
-    - humti
-    - boo
-    - seta
-    - singa
-    - pon
-    - witas
-    - josho
-    - wiso
-    - sankon
-    - waschi
-    - yoshin
-    - panshin
-    - coro
-    - nonti
-    - shobo
-    - chomo
-    - chupa
-    - piti
-    - chaira
-    - kencha
-    - kirika
-    - kirika shobo
-- intent: ver_mi_progreso
-  examples: |
-    - ver mi progreso
-    - quiero ver mi progreso
-    - mi progreso
-    - mi aprendizaje
-    - cómo voy
-    - como voy
-    - mostrar progreso
-    - dame mi progreso
-    - cuánto he aprendido
-    - cuanto he aprendido
-    - muéstrame mi avance
-    - mi avance
-    - quiero ver mi avance
+  - rule: Continuar cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - intent: continuar
+      - action: action_siguiente_fragmento
 
-- intent: seleccionar_modo
-  examples: |
-    - cambiar modo
-    - cambiar de modo
-    - quiero cambiar el modo
-    - modo de práctica
-    - modo de practica
-    - cambia el modo
-    - quiero practicar de otra manera
-    - quiero cambiar la dirección
-    - practicar al revés
-    - practicar al reves
-    - español a shipibo
-    - espanol a shipibo
-    - shipibo a español
-    - shipibo a espanol
-    - modo español
-    - modo espanol
-    - modo shipibo
-    - cambiar dirección
-    - cambiar direccion
-    - practicar en otra dirección
-    - quiero el otro modo
-    - cambiar la forma de practicar
-    - otra dirección de práctica
-    - prefiero el otro modo
+  - rule: Pedir ayuda en cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - intent: pedir_ayuda
+      - action: action_dar_ayuda_cuento
 
-- intent: conversar
-  examples: |
-    - quiero conversar
-    - vamos a hablar
-    - hablemos
-    - quiero practicar conversación
-    - conversemos un rato
-    - quiero charlar
-    - dialoguemos
+  - rule: Repetir fragmento en cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - intent: pedir_repeticion
+      - action: action_repetir_fragmento
+
+  - rule: Pausar cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: cuento
+    steps:
+      - intent: pausar
+      - action: utter_pausar
+
+  # ─────────────────────────────────────────────
+  # Ver mi progreso (panel "Mi Aprendizaje")
+  # Se dispara con el payload /ver_mi_progreso desde el frontend
+  # o si el usuario escribe la frase y se clasifica como out_of_scope.
+  # ─────────────────────────────────────────────
+  - rule: Ver progreso del usuario
+    condition:
+      - active_loop: null
+    steps:
+      - intent: ver_mi_progreso
+      - action: action_ver_progreso
+
+  # ─────────────────────────────────────────────
+  # Cambio de modo de práctica (ES->SHP / SHP->ES)
+  # Solo se aplica fuera de form. Dentro del form, la captura del
+  # intent la hace ValidateActividadForm, que muestra el selector
+  # sin cerrar la actividad.
+  # ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
+  # Modo conversación libre (tercer apartado)
+  # El frontend envía cada mensaje del usuario como payload explícito
+  # /conversar{"texto_usuario":"..."}. La acción procesa el texto y
+  # decide: traducir palabra del corpus, responder frase conversacional,
+  # buscar en RAG (futuro), o sugerir.
+  # ─────────────────────────────────────────────
+  - rule: Responder conversación libre
+    condition:
+      - active_loop: null
+    steps:
+      - intent: conversar
+      - action: action_responder_conversacion
+
+  # Salidas explícitas del modo conversar hacia las otras actividades.
+  # Necesarias porque las reglas "Iniciar ... desde estado libre" piden
+  # flujo_actual: ninguno, y dentro de conversar el slot vale "conversar".
+  # Sin estas reglas, los payloads /aprender_vocabulario y /iniciar_cuento
+  # quedaban atrapados por la regla "Responder conversación libre".
+  - rule: Salir de conversar hacia vocabulario
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: conversar
+    steps:
+      - intent: aprender_vocabulario
+      - action: action_iniciar_vocabulario
+
+  - rule: Salir de conversar hacia cuento
+    condition:
+      - active_loop: null
+      - slot_was_set:
+          - flujo_actual: conversar
+    steps:
+      - intent: iniciar_cuento
+      - action: action_iniciar_cuento
+      - slot_was_set:
+          - flujo_actual: cuento
+
+  # Cambio de modo durante una actividad: cerrar el form,
+  # delegar a action_seleccionar_modo (que aplica el modo y reactiva
+  # el form vía FollowupAction).
+  - rule: Cambiar modo durante actividad
+    condition:
+      - active_loop: actividad_form
+    steps:
+      - intent: seleccionar_modo
+      - action: action_deactivate_loop
+      - active_loop: null
+      - action: action_seleccionar_modo
+
+  - rule: Seleccionar modo de práctica fuera de actividad
+    condition:
+      - active_loop: null
+    steps:
+      - intent: seleccionar_modo
+      - action: action_seleccionar_modo
+  - rule: Recorrer palabras en modo aprender
+    condition:
+      - active_loop: null
+    steps:
+      - intent: aprender_palabras
+      - action: action_aprender_vocabulario
+
+  - rule: Ofrecer aprender o evaluar al entrar a una categoria
+    condition:
+      - active_loop: null
+    steps:
+      - intent: ofrecer_modo_vocab
+      - action: action_ofrecer_modo_vocab
