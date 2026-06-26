@@ -872,7 +872,7 @@ class ActionIniciarCuento(Action):
             return []
 
         # El frontend puede enviar el cuento elegido en el slot `cuento_actual`
-        # (vía payload /iniciar_cuento{"cuento_actual":"motelo_tigre"}).
+        # (vía payload /iniciar_cuento{"cuento_actual":"anciano_camungo"}).
         # Si el usuario eligió un cuento explícitamente, se respeta esa elección
         # y solo se retoma desde la última posición si el cuento coincide.
         cuento_elegido = tracker.get_slot("cuento_actual") or _cuento_id_desde_entidades(tracker)

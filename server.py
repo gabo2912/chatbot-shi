@@ -69,17 +69,9 @@ CUENTOS_XLSX_CANDIDATES = [
 # Metadatos visuales por cuento (emoji + descripción corta).
 # Si en el futuro se agregan más cuentos, el frontend usa 📖 por defecto.
 CUENTO_META = {
-    "motelo_tigre": {
-        "emoji": "🐢",
-        "descripcion": "Una fábula sobre cómo el ingenio vence a la fuerza.",
-    },
     "paujil_fiesta": {
         "emoji": "🦃",
         "descripcion": "El paujil descubre por qué tiene plumas blancas en la cola.",
-    },
-    "matrimonio_shipibo": {
-        "emoji": "🏡",
-        "descripcion": "Las dos pruebas que el yerno debía superar antes de casarse.",
     },
     "anciano_camungo": {
     "emoji": "🧓",
