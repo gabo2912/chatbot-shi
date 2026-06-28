@@ -81,9 +81,7 @@ EMOJI_CAT = {
     "colores":    "🎨",
     "objetos":    "🏺",
     "números":    "🔢",
-    "acciones":   "🏃",
     "personas":   "👨‍👩‍👧",
-    "cualidades": "✨",
 }
 
 # Carga dinámica del total por categoría desde el corpus
@@ -97,8 +95,7 @@ except Exception as _e:
     )
     TOTAL_PALABRAS = {
         "naturaleza": 12, "animales": 19, "cuerpo": 12,
-        "colores": 6, "objetos": 11, "números": 10,
-        "acciones": 6, "personas": 5, "cualidades": 4,
+        "colores": 6, "objetos": 11, "números": 10, "personas": 5,
     }
 
 

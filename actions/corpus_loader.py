@@ -45,8 +45,6 @@ CATEGORIA_MAP: Dict[str, str] = {
     "col":  "colores",
     "obj":  "objetos",
     "num":  "números",
-    "acc":  "acciones",
-    "cua":  "cualidades",
     "per":  "personas",
 }
 
