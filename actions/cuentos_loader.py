@@ -29,8 +29,10 @@ logger = logging.getLogger(__name__)
 # ── Ruta al corpus de cuentos ─────────────────────────────────────────────────
 CUENTOS_PATH = os.path.join(os.path.dirname(__file__), "corpus", "cuentos.xlsx")
 
-# Cuento que se ofrece por defecto cuando el usuario solo dice "quiero un cuento"
-CUENTO_PREDETERMINADO = "motelo_tigre"
+# Cuento que se ofrece por defecto cuando el usuario solo dice "quiero un cuento".
+# Debe ser un cuento con buena cobertura de vocabulario (todas sus palabras meta
+# enseñadas en palabras.xlsx) para que la primera experiencia no sea la más difícil.
+CUENTO_PREDETERMINADO = "anciano_camungo"
 
 
 def _normalizar(s: Any) -> str:
@@ -44,12 +46,12 @@ def _cargar_desde_excel(path: str) -> Dict[str, Dict[str, Any]]:
     """
     Lee el Excel y devuelve:
     {
-      "motelo_tigre": {
-        "id":      "motelo_tigre",
-        "titulo":  "El motelo del tigre",
+      "anciano_camungo": {
+        "id":      "anciano_camungo",
+        "titulo":  "El anciano y el camungo",
         "fragmentos": [
           {"orden": 1, "texto": "...", "pregunta": "...",
-           "respuesta_esperada": "jene", "ayuda": "..."},
+           "respuesta_esperada": "yomerati", "ayuda": "..."},
           ...
         ]
       },

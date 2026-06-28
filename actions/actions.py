@@ -76,25 +76,9 @@ except Exception as _int_err:
     def _frases_por_categoria(categoria):
         return []
 
-# Import resiliente del loader de curiosidades culturales.
-# Si el archivo curiosidades_loader.py no está disponible (por ejemplo,
-# no se copió a la carpeta actions/), el sistema sigue funcionando
-# sin curiosidades — no rompe vocabulario, cuento ni conversación.
-try:
-    from curiosidades_loader import (
-        obtener_curiosidad as _obtener_curiosidad,
-        curiosidades_disponibles as _curiosidades_disponibles,
-    )
-except Exception as _cur_err:
-    import logging as _log_cur
-    _log_cur.getLogger(__name__).warning(
-        "curiosidades_loader no disponible (%s). "
-        "El bot funcionará sin curiosidades culturales.", _cur_err
-    )
-    def _obtener_curiosidad(palabra_es, probabilidad=0.3, forzar=False):
-        return None
-    def _curiosidades_disponibles():
-        return False
+# Las curiosidades culturales se retiraron: el contenido cultural lo provee
+# ahora únicamente el servicio RAG (ver rama 5 de ActionResponderConversacion).
+# Ya no se importa curiosidades_loader.
 
 # Import resiliente del cliente HTTP del servicio RAG independiente.
 # El servicio RAG vive en otro proyecto (rag-service/) con su propio venv,
@@ -1446,6 +1430,8 @@ _TPL_REPETICION_SALUDO = [
     "Veo que vuelves a saludar 🌿. ¿Quieres que te muestre otras formas de saludar?",
     "Otro saludo. Si quieres, te puedo mostrar despedidas o agradecimientos en shipibo.",
     "¿Probamos algo distinto? Te puedo decir cómo despedirte o agradecer en shipibo.",
+    "Ya nos saludamos 🌱. ¿Te enseño una frase de cortesía o una curiosidad cultural?",
+    "Te leo de nuevo con un saludo. ¿Vemos cómo se agradece o cómo se pregunta '¿cómo estás?' en shipibo?",
 ]
 
 # Plantilla cuando el usuario escribe una palabra del CORPUS DE VOCABULARIO
@@ -1676,6 +1662,21 @@ _PATRONES_TRADUCCION = [
     r"([\wáéíóúñ\-]+)\s+en\s+(?:espa[ñn]ol|shipibo(?:-konibo)?|castellano)",
 ]
 
+# Patrones LAXOS: fraseos casuales de traducción (más propensos a falsos
+# positivos). Por eso _extraer_palabra_a_traducir SOLO los acepta cuando la
+# palabra capturada existe en el corpus. Así "no sé cómo es esto" no se
+# confunde con un pedido de traducción, pero "sol cómo era?" sí se resuelve.
+_PATRONES_TRADUCCION_LAXOS = [
+    # palabra ANTES: "sol cómo era", "casa cómo se decía", "río cómo es"
+    r"([\wáéíóúñ\-]+)\s+c[oó]mo\s+(?:era|es|fue|se\s+dec[ií]a|se\s+dice)\b",
+    # "X para ustedes", "X en su/tu idioma/lengua"
+    r"([\wáéíóúñ\-]+)\s+(?:para\s+ustedes|en\s+su\s+idioma|en\s+tu\s+idioma|en\s+su\s+lengua)",
+    # "cómo (lo) dirían (ustedes): X", "cómo dirían X"
+    r"c[oó]mo\s+(?:lo\s+)?dir[ií]an?\s*(?:ustedes)?\s*:?\s*([\wáéíóúñ\-]+)",
+    # palabra DESPUÉS: "cómo es río", "cómo era el sol"
+    r"c[oó]mo\s+(?:es|era|se\s+dice|se\s+dec[ií]a)\s+(?:el\s+|la\s+|un\s+|una\s+)?([\wáéíóúñ\-]+)",
+]
+
 # Palabras a descartar: stopwords, artículos, pronombres muy cortos. Si el
 # regex capturó algo así es ruido (no es la palabra que el alumno quiere).
 _STOPWORDS_TRADUCCION = {
@@ -1683,6 +1684,9 @@ _STOPWORDS_TRADUCCION = {
     "una", "un", "los", "las", "esta", "este", "ese", "esa", "eso",
     "como", "cómo", "esto", "algo", "palabra", "shipibo", "konibo",
     "espanol", "español", "castellano", "ingles", "inglés",
+    # formas verbales que NO son palabras objetivo (evitan que "X en shipibo"
+    # capture el verbo en "cómo era en shipibo")
+    "era", "eran", "fue", "fui", "sea", "sera", "será", "son", "ser",
 }
 
 
@@ -1704,8 +1708,11 @@ def _extraer_palabra_a_traducir(texto: str) -> Optional[str]:
     if not texto:
         return None
     t = texto.lower().strip()
-    # Quitar signos finales para que no entren al grupo capturado
-    t = _re.sub(r"[¿?¡!.,]", " ", t).strip()
+    # Quitar comillas y signos para que no entren al grupo capturado
+    t = _re.sub(r'[¿?¡!.,"\u201c\u201d\u00ab\u00bb\']', " ", t).strip()
+
+    # 1) Patrones ESTRICTOS: intención de traducción inequívoca. Respondemos
+    #    aunque la palabra no esté en el corpus (mensaje honesto "no la tengo").
     for patron in _PATRONES_TRADUCCION:
         m = _re.search(patron, t)
         if not m:
@@ -1716,6 +1723,19 @@ def _extraer_palabra_a_traducir(texto: str) -> Optional[str]:
         if palabra in _STOPWORDS_TRADUCCION:
             continue
         return palabra
+
+    # 2) Patrones LAXOS: fraseos casuales. Solo se aceptan si la palabra
+    #    capturada existe en el corpus, para no robar inputs ambiguos
+    #    ("no sé cómo es esto") que deben seguir al fallback.
+    for patron in _PATRONES_TRADUCCION_LAXOS:
+        m = _re.search(patron, t)
+        if not m:
+            continue
+        palabra = m.group(1).strip()
+        if len(palabra) < 2 or palabra in _STOPWORDS_TRADUCCION:
+            continue
+        if _traducir_corpus(normalizar(palabra)):
+            return palabra
     return None
 
 
@@ -1823,30 +1843,46 @@ def _categoria_de_palabra(palabra_es: str) -> Optional[str]:
     return None
 
 
-def _buscar_curiosidad_en_texto(texto: str) -> Optional[Dict[str, str]]:
-    """
-    Escanea el texto del usuario buscando palabras del corpus que tengan
-    una curiosidad cultural asociada. Devuelve la primera encontrada, o None.
+# Palabras-clave que disparan "dame otra palabra de <categoría>". Claves
+# normalizadas (sin tilde); el valor es la categoría tal como aparece en
+# VOCABULARIO (con su tilde, ej. "números").
+_KEYWORDS_CATEGORIA = {
+    "naturaleza": "naturaleza",
+    "animal": "animales", "animales": "animales",
+    "cuerpo": "cuerpo",
+    "color": "colores", "colores": "colores",
+    "objeto": "objetos", "objetos": "objetos",
+    "numero": "números", "numeros": "números",
+}
 
-    Esta función es el reemplazo provisional del RAG en preguntas culturales:
-    si el usuario pregunta "¿qué es el río en la cultura shipiba?", buscamos
-    *río* en el índice de curiosidades. Cuando el RAG real esté disponible,
-    esta función se sustituye por una llamada al retriever sin tocar el run().
+
+def _extraer_pedido_categoria(texto: str) -> Optional[str]:
     """
-    if not _curiosidades_disponibles():
+    Detecta pedidos del tipo "dame otra palabra de animales",
+    "una palabra de naturaleza", "enséñame un número". Devuelve el nombre
+    canónico de la categoría (como en VOCABULARIO) o None.
+
+    Requiere DOS señales: una de "pedir palabra/ejemplo" y una palabra-clave
+    de categoría. Así no captura frases sueltas que solo mencionen la categoría.
+    """
+    t = normalizar(texto)
+    señal = any(s in t for s in (
+        "otra palabra", "una palabra", "otra de", "una de",
+        "dame otra", "dame una", "dame un",
+        "ensename", "muestrame", "dime una", "dime otra",
+        "palabra de", "ejemplo de", "ensename un", "ensename una",
+    ))
+    if not señal:
         return None
-    try:
-        from curiosidades_loader import CURIOSIDADES
-    except ImportError:
-        return None
-    texto_norm = normalizar(texto)
-    tokens = set(texto_norm.split())
-    for palabra, opciones in CURIOSIDADES.items():
-        if not opciones:
-            continue
-        if palabra in tokens or palabra in texto_norm:
-            return _random.choice(opciones)
+    for kw, canon in _KEYWORDS_CATEGORIA.items():
+        if kw in t and VOCABULARIO.get(canon):
+            return canon
     return None
+
+
+# _buscar_curiosidad_en_texto fue retirada: el contenido cultural ahora lo
+# provee íntegramente el servicio RAG (rama 5 de ActionResponderConversacion).
+# curiosidades.json y curiosidades_loader.py quedan sin uso y se pueden borrar.
 
 
 # ── Helpers de variedad y detección de repetición ─────────────────────────
@@ -2006,13 +2042,26 @@ class ActionResponderConversacion(Action):
                     palabra=palabra_a_traducir,
                     traduccion=traduccion_explicita,
                 )
-            else:
+                dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+                return self._cerrar(mensaje, "traduccion")
+
+            # No está en el corpus de vocabulario. Si la pregunta es del tipo
+            # "qué significa X" / "qué quiere decir X", X puede ser un TÉRMINO
+            # CULTURAL (onanya, meraya, ronin...). En ese caso NO cortamos con
+            # el mensaje de "no encontrado": dejamos que la rama cultural (RAG,
+            # bloque 5) intente responder. Los pedidos de traducción explícitos
+            # ("traduce X", "cómo se dice X", "X en shipibo") sí dan el mensaje
+            # honesto, porque no son preguntas culturales.
+            t_low = texto.lower()
+            pide_significado = ("significa" in t_low or "quiere decir" in t_low)
+            if not (pide_significado and _es_pregunta_cultural(texto)):
                 mensaje = _formatear_sin_repetir(
                     _TPL_TRADUCCION_NO_ENCONTRADA, ultima_respuesta,
                     palabra=palabra_a_traducir,
                 )
-            dispatcher.utter_message(text=mensaje, buttons=_botones_default())
-            return self._cerrar(mensaje, "traduccion")
+                dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+                return self._cerrar(mensaje, "traduccion")
+            # else: cae a la rama cultural (RAG) más abajo, sin return.
 
         # ── 3. PALABRA DEL CORPUS DE VOCABULARIO → respuesta natural ────────
         # Aislamiento de funciones suave: las palabras del corpus de vocabulario
@@ -2030,13 +2079,33 @@ class ActionResponderConversacion(Action):
             dispatcher.utter_message(text=mensaje, buttons=_botones_redirigir_vocabulario())
             return self._cerrar(mensaje, "redirigir_vocab")
 
+        # ── 3.5 PEDIDO DE PALABRA DE UNA CATEGORÍA ─────────────────────────
+        # "dame otra palabra de animales", "una palabra de naturaleza",
+        # "enséñame un número". Devuelve una palabra aleatoria de la categoría
+        # con su traducción. Va antes de las frases para no caer en fallback.
+        cat_pedida = _extraer_pedido_categoria(texto)
+        if cat_pedida:
+            palabras_cat = VOCABULARIO.get(cat_pedida, [])
+            if palabras_cat:
+                p = _random.choice(palabras_cat)
+                es_p = _palabra_get(p, "es", "")
+                shp_p = _palabra_get(p, "shp", "")
+                mensaje = (
+                    f"🌿 Una palabra de *{cat_pedida}*: "
+                    f"**{es_p}** se dice **{shp_p}** en shipibo-konibo."
+                )
+                dispatcher.utter_message(text=mensaje, buttons=_botones_default())
+                return self._cerrar(mensaje, "palabra_categoria")
+
         # ── 4. Frase del corpus conversacional (saludos, agradecer, etc.) ──
         if _frases_conv_disponibles():
             match = _buscar_frase_conv(texto)
             if match:
-                # Si el usuario ya hizo un saludo y vuelve a saludar → variar.
                 es_saludo = match["categoria"] in ("saludo", "despedida")
-                if es_saludo and ultima == "frase":
+                # Solo deflectamos si el usuario repite EXACTAMENTE el mismo
+                # saludo (2+ veces). Saludos distintos ("hola" y luego "buenos
+                # días") se responden normalmente, cada uno con su traducción.
+                if es_saludo and _veces_repetido_input(tracker, texto_norm) >= 2:
                     mensaje = _formatear_sin_repetir(
                         _TPL_REPETICION_SALUDO, ultima_respuesta
                     )
@@ -2087,28 +2156,19 @@ class ActionResponderConversacion(Action):
             return self._cerrar(mensaje, "meta_linguistica")
 
         # ── 5. Pregunta cultural ────────────────────────────────────────────
-        # Búsqueda en cascada (orden de calidad): primero la curaduría manual
-        # (texto pulido y corto), después el RAG sobre el PDF (cobertura total
-        # pero párrafos más largos), y al final un placeholder honesto si nada
-        # responde con suficiente relevancia.
+        # Fuente única: el servicio RAG sobre el PDF de cosmovisión. Si el RAG
+        # no está disponible, o no encuentra un pasaje suficientemente relevante
+        # (respuesta=None por el umbral), caemos a un mensaje honesto en vez de
+        # inventar. (Antes había una rama 5a de curiosidades curadas; se retiró
+        # al pasar el contenido cultural íntegramente al RAG.)
         if _es_pregunta_cultural(texto):
-            # 5a) Curiosidad curada a mano (mayor calidad textual)
-            cur = _buscar_curiosidad_en_texto(texto)
-            if cur:
-                mensaje = f"💡 _{cur['texto']}_"
-                if cur.get("fuente"):
-                    mensaje += f"\n\n_Fuente: {cur['fuente']}_"
-                dispatcher.utter_message(text=mensaje, buttons=_botones_default())
-                return self._cerrar(mensaje, "pregunta_cultural")
-
-            # 5b) RAG sobre PDF de cosmovisión (cobertura completa del documento)
             if _rag_disponible():
                 respuesta_rag = _rag_responder(texto)
                 if respuesta_rag:
                     dispatcher.utter_message(text=respuesta_rag, buttons=_botones_default())
                     return self._cerrar(respuesta_rag, "pregunta_cultural")
 
-            # 5c) Fallback honesto: ni curaduría ni RAG dieron respuesta relevante
+            # Fallback honesto: el RAG no dio una respuesta relevante.
             mensaje = (
                 "📚 Esa es una pregunta sobre cultura shipiba interesante, "
                 "pero no encontré información específica sobre eso en mis fuentes. "
