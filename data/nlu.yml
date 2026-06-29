@@ -580,6 +580,12 @@ nlu:
 # sección desde la misma fuente para mantener la consistencia ortográfica.
 # Requiere RegexEntityExtractor + use_lookup_tables: true en config.yml.
 # ═══════════════════════════════════════════════════════════════════════════
+# LOOKUP TABLE — entidad palabra_objetivo
+# Regenerada desde palabras.xlsx (vocabulario actualizado: 79 palabras, incluye
+# la categoría 'personas' y las palabras de los cuentos). Misma grafía que la
+# evaluación en actions.py. NO editar a mano: regenerar desde palabras.xlsx.
+# Requiere RegexEntityExtractor + use_lookup_tables: true en config.yml.
+# ═══════════════════════════════════════════════════════════════════════════
 - lookup: palabra_objetivo
   examples: |
     # --- español ---
@@ -659,24 +665,17 @@ nlu:
     - camungo
     - zorro
     - loro
-    - cazar
-    - amarrar
-    - asustarse
-    - insultar
-    - desatar
-    - enamorarse
     - cocha
     - masato
     - fiesta
-    - mucho
-    - borracho
-    - rayas
-    - hueco
     # --- shipibo-konibo ---
     - yapa
+    - piti
     - mananxao
+    - kabori
     - ochiti
     - shino
+    - joxo shino
     - isa
     - rono
     - kape
@@ -685,10 +684,11 @@ nlu:
     - penpen
     - chasho
     - misho
-    - osho
+    - mishito
+    - joxo
     - wiso
-    - yakon
-    - yoshin
+    - yankon
+    - joshin
     - panshin
     - meken
     - kesha
@@ -714,22 +714,21 @@ nlu:
     - mai
     - yame
     - nonti
-    - shobo
+    - xobo
     - yamikenti
     - chopa
-    - piti
-    - paranta
+    - rato
     - kirika
-    - jainoax asheti
+    - jainoax axeti
     - westiora
     - rabe
     - kimisha
     - chosko
-    - pishika
+    - pichika
     - sokota
-    - canchis
-    - sotoka
-    - posoka
+    - kanchis
+    - posaka
+    - iskon
     - chonka
     - joni
     - chai
@@ -742,19 +741,6 @@ nlu:
     - abokoma
     - maxo
     - bawa
-    - yomerati
-    - nexati
-    - rateti
-    - ichati
-    - choroti
-    - merati
     - ian
-    - atsa
+    - atsa xeati
     - pishta
-    - icha
-    - paena
-    - chisereya
-    - kini
-    - kabori
-    - joxo shino
-    - mishito

@@ -1853,6 +1853,7 @@ _KEYWORDS_CATEGORIA = {
     "color": "colores", "colores": "colores",
     "objeto": "objetos", "objetos": "objetos",
     "numero": "números", "numeros": "números",
+    "persona": "personas", "personas": "personas",
 }
 
 

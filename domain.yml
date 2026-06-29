@@ -59,6 +59,7 @@ slots:
       - colores
       - objetos
       - números
+      - personas
     influence_conversation: false
     mappings:
       - type: from_entity

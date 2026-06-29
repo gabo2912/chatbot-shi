@@ -120,6 +120,24 @@ PISTAS: Dict[str, str] = {
     "ocho":      "Cantidad de patas de una araña.",
     "nueve":     "Sigue al ocho. Antes del diez.",
     "diez":      "Cantidad de dedos en las dos manos.",
+    # animales (palabras nuevas, varias de los cuentos)
+    "tigre":     "Gran felino de la selva, asociado al poder y al jaguar.",
+    "motelo":    "Tortuga terrestre de la Amazonía, lenta y de caparazón duro.",
+    "paujil":    "Ave grande de la selva, de plumaje oscuro.",
+    "camungo":   "Ave amazónica con un pequeño cuerno en la frente.",
+    "zorro":     "Animal astuto de hocico alargado y cola peluda.",
+    "loro":      "Ave de colores que puede imitar la voz humana.",
+    # naturaleza (nueva)
+    "cocha":     "Laguna tranquila de la selva, donde se pesca y se navega.",
+    # objetos (nuevas, de los cuentos)
+    "masato":    "Bebida tradicional shipiba hecha de yuca fermentada.",
+    "fiesta":    "Celebración de la comunidad con música, comida y baile.",
+    # personas (categoría nueva)
+    "hombre":    "Persona adulta de sexo masculino.",
+    "cuñado":    "El hermano de tu esposo o esposa.",
+    "madre":     "La mujer que te dio la vida; tu mamá.",
+    "señorita":  "Mujer joven, todavía soltera.",
+    "hijos":     "Los descendientes de una familia; los niños de los padres.",
 }
 
 
