@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Pishico Bot — Aprendizaje Shipibo-Konibo</title>
 <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
 <style>
@@ -668,57 +668,67 @@ body {
  body { flex-direction: column; }
  #app { flex-direction: column !important; height: 100vh; }
 
- /* Sidebar → bottom navigation bar */
+ /* Sidebar → drawer lateral deslizable (oculto por defecto) */
  #sidebar {
-  width: 100%;
+  width: 72%;
+  max-width: 300px;
   min-width: 0;
-  height: auto;
+  height: 100vh;
+  height: 100dvh;
   position: fixed;
-  bottom: 0; left: 0; right: 0;
-  flex-direction: row;
+  top: 0; left: 0; bottom: 0;
+  flex-direction: column;
   z-index: 100;
-  border-top: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+  transform: translateX(-100%);
+  transition: transform .25s ease;
+  box-shadow: 2px 0 16px rgba(0,0,0,0.25);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-y: auto;
  }
- /* Ocultar el bloque superior del logo+nombre en móvil */
- .sidebar-top { display: none; }
+ /* Estado abierto: el drawer entra en pantalla */
+ #sidebar.drawer-open { transform: translateX(0); }
 
- /* Nav horizontal, ocupa todo el ancho */
+ /* Mostrar botón hamburguesa en el header (solo móvil) */
+ #hamburger-btn { display: flex !important; }
+
+ /* El bloque superior del logo+nombre vuelve a verse dentro del drawer */
+ .sidebar-top { display: flex; }
+
+ /* Nav vertical dentro del drawer */
  #sidebar nav {
-  flex-direction: row;
-  padding: 0;
+  flex-direction: column;
+  padding: .5rem;
   width: 100%;
-  gap: 0;
+  gap: .25rem;
   flex: 1;
  }
  .nav-btn {
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  padding: .55rem .25rem .65rem;
-  font-size: .6rem;
-  border-radius: 0;
+  flex: none;
+  flex-direction: row;
+  gap: .75rem;
+  padding: .85rem 1rem;
+  font-size: .95rem;
+  border-radius: 10px;
   font-weight: 600;
-  letter-spacing: .02em;
-  min-height: 56px;
-  justify-content: center;
-  text-align: center;
-  line-height: 1.1;
+  justify-content: flex-start;
+  text-align: left;
+  line-height: 1.2;
   white-space: normal;
  }
  .nav-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
- /* Ocultar texto largo en pantallas extremadamente angostas con data-short */
  .nav-btn .label-full { display: inline; }
  .nav-btn .label-short { display: none; }
 
- /* Botón cerrar sesión: ocultar del sidebar (queda accesible en header) */
- #sidebar > div[style*="margin-top: auto"] { display: none; }
+ /* Botón cerrar sesión: vuelve a verse dentro del drawer */
+ #sidebar > div[style*="margin-top: auto"] { display: flex; }
 
- /* Botón flotante de cerrar sesión en el header del chat */
- #mobile-logout-btn { display: flex !important; }
+ /* Botón flotante de cerrar sesión en el header: ya no hace falta,
+    el logout vive de nuevo en el drawer */
+ #mobile-logout-btn { display: none !important; }
 
- /* Main: padding-bottom para no tapar contenido con la nav bar */
- #main { padding-bottom: 60px; }
+ /* Main: el input es ahora el único elemento inferior; sin reserva de nav */
+ #main { padding-bottom: 0; }
 
  /* Header del chat: más compacto */
  #chat-header { padding: .65rem .85rem; gap: .65rem; }
@@ -753,8 +763,8 @@ body {
  #quick-replies { padding: .4rem .85rem .55rem; gap: .4rem; }
  .qr-btn { padding: .42rem .8rem; font-size: .78rem; }
 
- /* Input area: más compacto pero respetando 44px de target tap */
- #input-area { padding: .55rem .85rem .75rem; gap: .5rem; }
+ /* Input area: único elemento inferior; respeta la safe-area del sistema */
+ #input-area { padding: .55rem .85rem calc(.75rem + env(safe-area-inset-bottom, 0px)); gap: .5rem; }
  #input-msg { padding: .65rem .9rem; font-size: 16px; }   /* 16px evita zoom automático en iOS */
  #btn-send { width: 40px; height: 40px; }
  #btn-send svg { width: 16px; height: 16px; }
@@ -836,10 +846,10 @@ body {
 /* ─── Pantallas muy chicas (iPhone SE, 360-380px) ─── */
 @media (max-width: 380px) {
 
- .nav-btn { font-size: .55rem; padding: .5rem .2rem .55rem; }
+ .nav-btn { font-size: .9rem; padding: .8rem 1rem; }
  .nav-btn svg { width: 20px; height: 20px; }
- .nav-btn .label-full { display: none; }
- .nav-btn .label-short { display: inline; }
+ .nav-btn .label-full { display: inline; }
+ .nav-btn .label-short { display: none; }
 
  #chat-titulo { font-size: .9rem; }
  .bubble { max-width: 88%; font-size: .85rem; padding: .6rem .75rem; }
@@ -867,8 +877,7 @@ body {
  .home-mascot { width: 64px; height: 64px; margin-bottom: .35rem; }
  .home-hero { margin-bottom: 1rem; }
  .home-hero h1 { font-size: 1.4rem; }
- .nav-btn { min-height: 48px; }
- #main { padding-bottom: 52px; }
+ #main { padding-bottom: 0; }
 }
 </style>
 </head>
@@ -959,7 +968,12 @@ body {
 </div>
 
 <!-- ── App principal ────────────────────────────────────────────── -->
-<div id="app" style="display:flex;width:100%;height:100vh;">
+<div id="app" style="display:flex;width:100%;height:100vh;height:100dvh;">
+ <!-- Overlay oscuro del drawer (solo móvil): cubre el chat cuando el menú
+      está abierto; al tocarlo se cierra el menú. -->
+ <div id="drawer-overlay" onclick="cerrarDrawer()"
+      style="display:none; position:fixed; inset:0; z-index:99;
+             background:rgba(0,0,0,0.45); opacity:0; transition:opacity .2s ease;"></div>
 
  <!-- Sidebar -->
  <aside id="sidebar">
@@ -1072,6 +1086,19 @@ body {
 
  <!-- Header -->
  <div id="chat-header">
+ <button id="hamburger-btn" onclick="abrirDrawer()"
+   title="Menú" aria-label="Abrir menú"
+   style="display:none; width:38px; height:38px; flex-shrink:0;
+          background:transparent; border:none; border-radius:8px;
+          align-items:center; justify-content:center; cursor:pointer;
+          color:var(--text-dark); padding:0; margin-right:.15rem;">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+ </button>
  <div class="header-icon">
  <!-- Logo de Pishico: visible solo en móvil (en desktop, el sidebar
       ya muestra el logo). Si la imagen no carga, queda el SVG. -->
@@ -1569,7 +1596,33 @@ async function resetBackend() {
  }
 }
 
+// ── Drawer lateral (menú móvil) ────────────────────────────────────
+function abrirDrawer() {
+ const sb = document.getElementById('sidebar');
+ const ov = document.getElementById('drawer-overlay');
+ if (!sb || !ov) return;
+ ov.style.display = 'block';
+ // forzar reflow para que la transición de opacidad se dispare
+ void ov.offsetWidth;
+ ov.style.opacity = '1';
+ sb.classList.add('drawer-open');
+}
+function cerrarDrawer() {
+ const sb = document.getElementById('sidebar');
+ const ov = document.getElementById('drawer-overlay');
+ if (!sb || !ov) return;
+ sb.classList.remove('drawer-open');
+ ov.style.opacity = '0';
+ setTimeout(() => { ov.style.display = 'none'; }, 200);
+}
+// Cerrar el drawer con la tecla Escape
+document.addEventListener('keydown', (e) => {
+ if (e.key === 'Escape') cerrarDrawer();
+});
+
 function setVista(vista) {
+ // Al navegar desde el drawer, cerrarlo automáticamente (solo aplica en móvil)
+ cerrarDrawer();
  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
  window._enModoConversar = (vista === 'conversar');
  const chatView = document.getElementById('chat-view');
