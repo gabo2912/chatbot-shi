@@ -671,7 +671,6 @@ nlu:
     # --- shipibo-konibo ---
     - yapa
     - piti
-    - mananxao
     - kabori
     - ochiti
     - shino
@@ -717,8 +716,9 @@ nlu:
     - xobo
     - yamikenti
     - chopa
+    - saweti chopa
     - rato
-    - kirika
+    - yoyo ati kirika
     - jainoax axeti
     - westiora
     - rabe
@@ -735,8 +735,9 @@ nlu:
     - tita
     - xontako
     - bakebo
-    - ino
-    - mananxawe
+    - toto ino
+    - sere ino
+    - manan xawe
     - jasin
     - abokoma
     - maxo
