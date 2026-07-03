@@ -1557,11 +1557,13 @@ def _es_pregunta_cultural(texto: str) -> bool:
 _PREGUNTAS_CULTURALES = [
     "¿qué es el kené?",
     "cuéntame sobre la ayahuasca",
-    "¿quién es Ronin?",
+    "¿qué es el meraya?",
     "explícame la cosmovisión shipiba",
     "¿qué son los icaros?",
     "háblame de los espíritus del agua",
-    "¿qué significa onanya?",
+    "¿qué representa Niwe, el viento?",
+    "¿qué es Nete, el cosmos?",
+    "¿qué es Jain, el espacio de los espíritus?",
     "cuéntame sobre el río Ucayali",
 ]
 

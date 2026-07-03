@@ -17,11 +17,14 @@ POLÍTICAS:
 - Si el servicio RAG está caído o no responde, devuelve None / False;
   el bot cae al placeholder textual y el usuario nunca ve un error.
 - Configuración por variable de entorno RAG_SERVICE_URL (default: http://127.0.0.1:8001).
-- Timeout corto (5s) para que el bot no se cuelgue si el RAG está lento.
+- Health check con timeout corto (5s); /buscar con timeout más largo
+  (RAG_BUSCAR_TIMEOUT, default 30s) porque en modo llm la respuesta la
+  sintetiza Gemini y puede tardar.
 
 Para activar el Camino A (LLM): no requiere cambios acá; basta con
 configurar RAG_MODO_DEFAULT=llm en el .env del servicio rag-service.
-Ver docs/rag_camino_a.md.
+Este cliente ya NO fuerza el modo: manda la query sin "modo", así el
+servicio decide según RAG_MODO_DEFAULT. Ver docs/rag_camino_a.md.
 """
 
 import os
@@ -36,9 +39,16 @@ logger = logging.getLogger(__name__)
 # URL base del servicio RAG. Si no se setea env var, usa el default local.
 RAG_SERVICE_URL = os.getenv("RAG_SERVICE_URL", "http://127.0.0.1:8001").rstrip("/")
 
-# Timeout en segundos para las llamadas HTTP. Corto a propósito para que el
-# bot nunca se cuelgue esperando al RAG; si tarda más de esto, fallback.
+# Timeout del health check. Corto: /health responde al toque.
 RAG_TIMEOUT = float(os.getenv("RAG_TIMEOUT", "5.0"))
+
+# Timeout de /buscar. Más largo que el del health porque en modo llm la
+# respuesta la sintetiza Gemini en la nube, que puede tardar (su propio
+# timeout es de ~20s más reintentos). Con 5s se cortaba antes de que Gemini
+# contestara y el bot caía al fallback aunque el LLM estuviera bien. 30s da
+# margen; si querés acotar la espera del usuario, bajá GEMINI_TIMEOUT en el
+# rag-service en vez de este valor.
+RAG_BUSCAR_TIMEOUT = float(os.getenv("RAG_BUSCAR_TIMEOUT", "30.0"))
 
 
 # ── Estado interno (caché del health check) ──────────────────────────────────
@@ -95,7 +105,10 @@ def rag_disponible() -> bool:
 
 def responder_cultural_simple(query: str) -> Optional[str]:
     """
-    Camino B: pide respuesta cultural al servicio RAG.
+    Pide una respuesta cultural al servicio RAG. El modo efectivo (simple o
+    llm/Gemini) lo decide el servicio según RAG_MODO_DEFAULT: este cliente ya
+    no lo fuerza. El nombre conserva el sufijo 'simple' solo por compatibilidad
+    del import en actions.py.
 
     Misma interfaz que la función homónima del rag_loader.py anterior, así
     actions.py no necesita modificar su lógica del bloque 5 'Pregunta cultural'.
@@ -112,10 +125,14 @@ def responder_cultural_simple(query: str) -> Optional[str]:
         return None
 
     try:
+        # NO mandamos "modo": así el servicio usa RAG_MODO_DEFAULT del .env
+        # (simple o llm). Antes iba "modo": "simple" hardcodeado, lo que
+        # forzaba el Camino B e ignoraba RAG_MODO_DEFAULT=llm. Ahora el modo
+        # se controla en un solo lugar: el .env del rag-service.
         resp = requests.post(
             f"{RAG_SERVICE_URL}/buscar",
-            json={"query": query, "k": 1, "modo": "simple"},
-            timeout=RAG_TIMEOUT,
+            json={"query": query, "k": 1},
+            timeout=RAG_BUSCAR_TIMEOUT,
         )
         if resp.status_code != 200:
             logger.warning("rag_client: /buscar respondió %d", resp.status_code)
