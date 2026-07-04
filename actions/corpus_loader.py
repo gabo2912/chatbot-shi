@@ -287,6 +287,7 @@ def _cargar_desde_excel(path: str) -> Dict[str, List[Dict[str, Any]]]:
             "es":          es,
             "shp":         shp_canonica,    # forma para matching
             "shp_display": shp_raw,         # forma con nota (si la tiene)
+            "categoria":   categoria,       # categoría (para armar rutas de imagen, etc.)
             "variantes":   variantes,
             "pista":       PISTAS.get(es.lower(),
                                       "Piensa en el contexto de esta palabra."),

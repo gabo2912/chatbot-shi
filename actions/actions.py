@@ -2226,33 +2226,66 @@ class ActionResponderConversacion(Action):
 # NO modifica el test (actividad_form) ni ActionIniciarVocabulario.
 # ════════════════════════════════════════════════════════════════════════════
 
-# Carpeta de imágenes servida por server.py en /images/<archivo>.
-# Coincide con IMAGES_DIR de server.py (raíz_proyecto/images).
-_IMAGES_DIR = _os.path.join(
-    _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "images"
-)
-_IMG_EXTS = (".webp", ".jpg", ".jpeg", ".png")
-_IMG_URL_BASE = "/images/"
+# ─────────────────────────────────────────────────────────────────────────
+# Imágenes de vocabulario servidas por jsDelivr (CDN) desde el repo público
+# pishico-assets. No requieren espacio en el servidor: el navegador del
+# usuario las pide directamente al CDN. La URL se arma con categoría + forma
+# shipibo, coherente con la estructura del repo:
+#     vocabulario/<categoria>/<shp_normalizado>.webp
+#
+# Para habilitar una categoría, subí sus imágenes al repo y agregá su nombre
+# a _CATEGORIAS_CON_IMAGEN. Las categorías fuera de esa lista no muestran
+# imagen (evita 404 mientras se completan poco a poco).
+# ─────────────────────────────────────────────────────────────────────────
+_IMG_CDN_BASE = "https://cdn.jsdelivr.net/gh/gabo2912/pishico-assets@main/vocabulario/"
+_IMG_EXT = ".webp"
+
+# Categorías que YA tienen imágenes subidas al repo. Ampliá esta lista a
+# medida que completes cada carpeta (colores, cuerpo, naturaleza, ...).
+_CATEGORIAS_CON_IMAGEN = {"animales"}
+
+# Mapa de categoría → segmento de carpeta en el repo (sin tildes en la ruta).
+_CATEGORIA_CARPETA = {
+    "animales": "animales",
+    "colores": "colores",
+    "cuerpo": "cuerpo",
+    "naturaleza": "naturaleza",
+    "objetos": "objetos",
+    "números": "numeros",
+    "numeros": "numeros",
+    "personas": "personas",
+}
 
 
-def _slug_palabra(es: str) -> str:
-    """'árbol' -> 'arbol'. Sin tildes, minúsculas, sin espacios."""
-    t = str(es).lower().strip()
+def _slug_shp(shp: str) -> str:
+    """'toto ino' -> 'toto_ino'. Minúsculas, sin tildes, espacios como '_'.
+    Coincide con la convención de nombres de archivo del repo de imágenes."""
+    t = str(shp).lower().strip()
     t = "".join(
         ch for ch in unicodedata.normalize("NFD", t)
         if unicodedata.category(ch) != "Mn"
     )
-    return t.replace(" ", "_")
+    return "_".join(t.split())
 
 
-def _ruta_imagen_palabra(es: str):
-    """URL de la imagen si el archivo existe en images/, o None.
-    Transición a imágenes SIN tocar código: basta dejar images/<slug>.webp."""
-    slug = _slug_palabra(es)
-    for ext in _IMG_EXTS:
-        if _os.path.isfile(_os.path.join(_IMAGES_DIR, slug + ext)):
-            return _IMG_URL_BASE + slug + ext
-    return None
+def _ruta_imagen_palabra(palabra, categoria: str = ""):
+    """URL en jsDelivr para la imagen de la palabra, o None si su categoría
+    aún no tiene imágenes cargadas.
+
+    Recibe el dict de palabra (para leer 'shp') y su categoría. La URL se
+    construye como <base>/<carpeta>/<shp>.webp. No verifica existencia remota:
+    la lista blanca _CATEGORIAS_CON_IMAGEN garantiza que solo se pidan
+    imágenes de categorías completas."""
+    if categoria not in _CATEGORIAS_CON_IMAGEN:
+        return None
+    carpeta = _CATEGORIA_CARPETA.get(categoria)
+    if not carpeta:
+        return None
+    shp = _palabra_get(palabra, "shp", "")
+    slug = _slug_shp(shp)
+    if not slug:
+        return None
+    return f"{_IMG_CDN_BASE}{carpeta}/{slug}{_IMG_EXT}"
 
 
 def _palabra_get(palabra, clave, default=""):
@@ -2380,7 +2413,7 @@ class ActionAprenderVocabulario(Action):
 
         palabra = palabras[idx]
         texto = _tarjeta_aprendizaje(palabra, idx + 1, len(palabras))
-        img_url = _ruta_imagen_palabra(_palabra_get(palabra, "es", ""))
+        img_url = _ruta_imagen_palabra(palabra, categoria)
 
         es_ultima = (idx + 1) >= len(palabras)
         botones = []

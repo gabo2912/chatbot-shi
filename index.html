@@ -186,6 +186,24 @@ body {
 }
 .bubble strong { font-weight: 700; }
 .bubble em { font-style: italic; }
+.msg-image {
+ display: block;
+ width: 160px;
+ max-width: 100%;
+ height: auto;
+ border-radius: 10px;
+ margin-bottom: .6rem;
+ background: #fff;
+ object-fit: contain;
+}
+.bubble.bubble-image-only {
+ padding: .4rem;
+ background: transparent;
+ box-shadow: none;
+}
+.bubble.bubble-image-only .msg-image {
+ margin-bottom: 0;
+}
 .msg-row.user.bubble {
  border-radius: 14px 14px 2px 14px;
  background: var(--msg-user-bg);
@@ -1677,10 +1695,16 @@ function setVista(vista) {
 }
 
 // ── Mensajes ────────────────────────────────────────────────────────
-function addMessage(role, text, buttons = []) {
+function addMessage(role, text, buttons = [], image = null) {
  const cont = document.getElementById('mensajes');
  const qr = document.getElementById('quick-replies');
+ // Un mensaje de SOLO imagen (sin texto ni botones) no debe borrar los
+ // quick-replies que puso el mensaje de texto anterior. Rasa envía la imagen
+ // en un mensaje separado, posterior al texto que trae los botones.
+ const soloImagen = image && !(text && text.trim()) && (!buttons || buttons.length === 0);
+ if (!soloImagen) {
  qr.innerHTML = '';
+ }
 
  const row = document.createElement('div');
  row.className = `msg-row ${role}`;
@@ -1700,7 +1724,25 @@ function addMessage(role, text, buttons = []) {
  // Burbuja
  const bub = document.createElement('div');
  bub.className = 'bubble';
+ // Si el mensaje trae solo imagen (sin texto), la burbuja no muestra texto
+ // y se ajusta al tamaño de la imagen (padding reducido).
+ if (text && text.trim()) {
  bub.innerHTML = formatear(text);
+ } else {
+ bub.classList.add('bubble-image-only');
+ }
+
+ // Imagen (vocabulario): se muestra dentro de la burbuja, sobre el texto.
+ // Si la imagen falla al cargar (404 en el CDN), se oculta sin romper el mensaje.
+ if (image) {
+ const img = document.createElement('img');
+ img.className = 'msg-image';
+ img.src = image;
+ img.alt = '';
+ img.loading = 'lazy';
+ img.onerror = () => { img.style.display = 'none'; };
+ bub.prepend(img);
+ }
 
  row.appendChild(icon);
  row.appendChild(bub);
@@ -1784,7 +1826,7 @@ async function enviar(texto) {
  });
  const data = await resp.json();
  quitarTyping();
- data.forEach(m => { if (m.text) addMessage('bot', m.text, m.buttons || []); });
+ data.forEach(m => { if (m.text || m.image) addMessage('bot', m.text || '', m.buttons || [], m.image || null); });
  } catch(_) {
  quitarTyping();
  addMessage('bot', '⚠️ Error de conexión.', []);
@@ -1804,8 +1846,8 @@ async function enviar(texto) {
  const data = await resp.json();
  quitarTyping();
  data.forEach(m => {
- if (m.text) {
- addMessage('bot', m.text, m.buttons || []);
+ if (m.text || m.image) {
+ addMessage('bot', m.text || '', m.buttons || [], m.image || null);
  // Registrar progreso local si el mensaje indica correcto
 }
  });
@@ -1846,7 +1888,7 @@ async function enviarARasa(msg) {
  const data = await resp.json();
  quitarTyping();
  data.forEach(m => {
- if (m.text) addMessage('bot', m.text, m.buttons || []);
+ if (m.text || m.image) addMessage('bot', m.text || '', m.buttons || [], m.image || null);
  });
  } catch (_) {
  quitarTyping();
