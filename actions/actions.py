@@ -2242,7 +2242,7 @@ _IMG_EXT = ".webp"
 
 # Categorías que YA tienen imágenes subidas al repo. Ampliá esta lista a
 # medida que completes cada carpeta (colores, cuerpo, naturaleza, ...).
-_CATEGORIAS_CON_IMAGEN = {"animales", "colores"}
+_CATEGORIAS_CON_IMAGEN = {"animales", "colores", "cuerpo"}
 
 # Mapa de categoría → segmento de carpeta en el repo (sin tildes en la ruta).
 _CATEGORIA_CARPETA = {
