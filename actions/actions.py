@@ -1855,7 +1855,7 @@ _KEYWORDS_CATEGORIA = {
     "color": "colores", "colores": "colores",
     "objeto": "objetos", "objetos": "objetos",
     "numero": "números", "numeros": "números",
-    "persona": "personas", "personas": "personas",
+    "familia": "familia",
 }
 
 
@@ -2242,7 +2242,7 @@ _IMG_EXT = ".webp"
 
 # Categorías que YA tienen imágenes subidas al repo. Ampliá esta lista a
 # medida que completes cada carpeta (colores, cuerpo, naturaleza, ...).
-_CATEGORIAS_CON_IMAGEN = {"animales", "colores", "cuerpo"}
+_CATEGORIAS_CON_IMAGEN = {"animales", "colores", "cuerpo" ,"naturaleza","objetos"}
 
 # Mapa de categoría → segmento de carpeta en el repo (sin tildes en la ruta).
 _CATEGORIA_CARPETA = {
@@ -2253,7 +2253,7 @@ _CATEGORIA_CARPETA = {
     "objetos": "objetos",
     "números": "numeros",
     "numeros": "numeros",
-    "personas": "personas",
+    "familia": "familia",
 }
 
 

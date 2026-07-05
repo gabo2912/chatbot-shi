@@ -45,7 +45,7 @@ CATEGORIA_MAP: Dict[str, str] = {
     "col":  "colores",
     "obj":  "objetos",
     "num":  "números",
-    "per":  "personas",
+    "fam":  "familia",
 }
 
 # ── Valores que marcan ausencia de equivalente shipibo ────────────────────────
@@ -129,15 +129,20 @@ PISTAS: Dict[str, str] = {
     "loro":      "Ave de colores que puede imitar la voz humana.",
     # naturaleza (nueva)
     "cocha":     "Laguna tranquila de la selva, donde se pesca y se navega.",
-    # objetos (nuevas, de los cuentos)
-    "masato":    "Bebida tradicional shipiba hecha de yuca fermentada.",
-    "fiesta":    "Celebración de la comunidad con música, comida y baile.",
-    # personas (categoría nueva)
-    "hombre":    "Persona adulta de sexo masculino.",
-    "cuñado":    "El hermano de tu esposo o esposa.",
-    "madre":     "La mujer que te dio la vida; tu mamá.",
-    "señorita":  "Mujer joven, todavía soltera.",
-    "hijos":     "Los descendientes de una familia; los niños de los padres.",
+    # familia (categoría nueva, reemplaza a personas)
+    "mamá":      "La mujer que te dio la vida; tu madre.",
+    "papá":      "El hombre que es tu padre.",
+    "hija":      "Descendiente mujer de una familia.",
+    "hijo":      "Descendiente varón de una familia.",
+    "bebé":      "Niño o niña muy pequeño, recién nacido.",
+    "abuela":    "La madre de tu papá o de tu mamá.",
+    "abuelo":    "El padre de tu papá o de tu mamá.",
+    "nieto":     "El hijo o hija de tus hijos.",
+    "tío":       "El hermano de tu papá o de tu mamá.",
+    "tía":       "La hermana de tu papá o de tu mamá.",
+    "primo":     "El hijo o hija de tu tío o tía.",
+    "hermano":   "Varón que comparte tus mismos padres.",
+    "hermana":   "Mujer que comparte tus mismos padres.",
 }
 
 

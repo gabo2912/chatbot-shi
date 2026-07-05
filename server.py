@@ -90,13 +90,13 @@ CUENTO_META = {
 # Emojis por categoría — sumar entradas al añadir categorías nuevas
 EMOJI_CAT = {
     "naturaleza": "🌿", "animales": "🦜", "cuerpo": "🫀",
-    "colores": "🎨", "objetos": "🏺", "números": "🔢", "personas": "👨‍👩‍👧",
+    "colores": "🎨", "objetos": "🏺", "números": "🔢", "familia": "👨‍👩‍👧",
 }
 
 # Mapeo prefijo → categoría (debe estar sincronizado con corpus_loader.py)
 _CATEGORIA_MAP = {
     "nat": "naturaleza", "ani": "animales", "cuer": "cuerpo",
-    "col": "colores",    "obj": "objetos", "num": "números",   "per": "personas",
+    "col": "colores",    "obj": "objetos", "num": "números",   "fam": "familia",
 }
 
 # Marcadores que indican ausencia de equivalente shipibo (palabras filtradas)
@@ -125,7 +125,7 @@ def _calcular_total_palabras():
     """
     fallback = {
         "naturaleza": 12, "animales": 19, "cuerpo": 12,
-        "colores": 7, "objetos": 11, "números": 10, "personas": 5,
+        "colores": 7, "objetos": 9, "números": 10, "familia": 13,
     }
     path = _palabras_xlsx_path()
     if not path:
