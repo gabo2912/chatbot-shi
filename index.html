@@ -28,10 +28,17 @@
  --header-bg: #ffffff;
 }
 
+html {
+ height: 100vh;
+ height: 100dvh;
+ overflow: hidden;
+}
+
 body {
  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
  background: var(--chat-bg);
  height: 100vh;
+ height: 100dvh;
  display: flex;
  overflow: hidden;
  color: var(--text-dark);
@@ -684,7 +691,7 @@ body {
 
  /* Layout principal: columna en lugar de fila */
  body { flex-direction: column; }
- #app { flex-direction: column !important; height: 100vh; }
+ #app { flex-direction: column !important; height: 100vh; height: 100dvh; }
 
  /* Sidebar → drawer lateral deslizable (oculto por defecto) */
  #sidebar {
@@ -1092,7 +1099,7 @@ body {
  <button class="home-card" onclick="setVista('conversar')">
  <span class="home-card-emoji">💬</span>
  <h3>Conversar conmigo</h3>
- <p>Charla libre: aprende frases, traduce palabras y descubre la cultura shipibo.</p>
+ <p>Charla libre en español y shipibo, con curiosidades culturales.</p>
  </button>
  <button class="home-card" onclick="setVista('progreso')">
  <span class="home-card-emoji">📊</span>
@@ -1757,12 +1764,6 @@ function addMessage(role, text, buttons = [], image = null) {
  b.onclick = () => {
  qr.innerHTML = '';
  const p = btn.payload || btn.title;
- // Redirección a otro módulo desde el modo conversar: los payloads
- // especiales /goto_vocabulario y /goto_cuento no van a Rasa; cambian
- // de vista en el frontend (el modo conversar no enseña esos módulos,
- // solo ofrece el enlace para ir a ellos).
- if (p === '/goto_vocabulario') { qr.innerHTML = ''; setVista('vocab'); return; }
- if (p === '/goto_cuento')      { qr.innerHTML = ''; setVista('cuento'); return; }
  // Antes de EVALUAR, limpiar el chat para que el usuario no copie las
  // palabras que acaba de ver en el modo aprender o en las palabras clave.
  // Transiciones a evaluación: /aprender_vocabulario (test de vocab) y
