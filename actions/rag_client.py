@@ -161,3 +161,53 @@ def _resetear_cache_disponibilidad():
     global _disponible_cache, _disponible_check_intentado
     _disponible_cache = None
     _disponible_check_intentado = False
+
+# ── Modo conversar orquestado por Gemini (endpoint /conversar) ───────────────
+
+# Timeout de /conversar: puede encadenar varias llamadas a Gemini (orquestación
+# + herramientas), así que se le da un margen mayor que a /buscar.
+RAG_CONVERSAR_TIMEOUT = float(os.getenv("RAG_CONVERSAR_TIMEOUT", "45.0"))
+
+
+def conversar_orquestado(mensaje: str, historial=None):
+    """
+    Llama al endpoint /conversar del rag-service, donde Gemini orquesta el modo
+    conversar libre (traducción, frases, cultura, info de la app).
+
+    Args:
+        mensaje: texto del usuario.
+        historial: lista opcional de turnos previos
+                   [{"rol": "user"|"model", "texto": "..."}].
+
+    Returns:
+        dict {"respuesta": str|None, "disponible": bool, "herramientas_usadas": [...]}
+        Si disponible=False (Gemini caído, servicio no disponible, error), el
+        caller debe usar su pipeline de reglas clásico como respaldo.
+    """
+    if not rag_disponible():
+        return {"respuesta": None, "disponible": False, "herramientas_usadas": [], "modulo_sugerido": None}
+    try:
+        resp = requests.post(
+            f"{RAG_SERVICE_URL}/conversar",
+            json={"mensaje": mensaje, "historial": historial or []},
+            timeout=RAG_CONVERSAR_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            logger.warning("rag_client: /conversar respondió %d", resp.status_code)
+            return {"respuesta": None, "disponible": False, "herramientas_usadas": [], "modulo_sugerido": None}
+        data = resp.json()
+        return {
+            "respuesta": data.get("respuesta"),
+            "disponible": bool(data.get("disponible", False)),
+            "herramientas_usadas": data.get("herramientas_usadas", []),
+            "modulo_sugerido": data.get("modulo_sugerido"),
+        }
+    except requests.exceptions.ConnectionError:
+        logger.warning("rag_client: servicio RAG no responde (conversar) en %s", RAG_SERVICE_URL)
+        return {"respuesta": None, "disponible": False, "herramientas_usadas": [], "modulo_sugerido": None}
+    except requests.exceptions.Timeout:
+        logger.warning("rag_client: timeout (>%.1fs) en /conversar", RAG_CONVERSAR_TIMEOUT)
+        return {"respuesta": None, "disponible": False, "herramientas_usadas": [], "modulo_sugerido": None}
+    except Exception as e:
+        logger.warning("rag_client: error en /conversar: %s", e)
+        return {"respuesta": None, "disponible": False, "herramientas_usadas": [], "modulo_sugerido": None}

@@ -89,6 +89,7 @@ try:
     from rag_client import (
         responder_cultural_simple as _rag_responder,
         rag_disponible as _rag_disponible,
+        conversar_orquestado as _conversar_orquestado,
     )
 except Exception as _rag_err:
     import logging as _log_rag
@@ -100,6 +101,8 @@ except Exception as _rag_err:
         return None
     def _rag_disponible():
         return False
+    def _conversar_orquestado(mensaje, historial=None):
+        return {"respuesta": None, "disponible": False, "herramientas_usadas": []}
 
 import random as _random
 
@@ -1494,11 +1497,14 @@ _TPL_INTENTO_CAMBIO_MODO = [
 
 # Bienvenidas: una corta para entradas repetidas, una más rica la primera vez
 _BIENVENIDA_PRIMERA = (
-    "¡Jawekeskarin! 🌿 Soy *Pishico*, tu compañero para aprender shipibo. "
+    "¡Jawekeskarin! 🌿 Soy *Pishico*, tu compañero para conversar en shipibo. "
+    "Puedo enseñarte frases útiles (saludar, agradecer, pedir ayuda), traducir "
+    "palabras, contarte sobre la cultura shipibo o explicarte cómo usar la app. "
     "¿Por dónde quieres empezar?"
 )
 _BIENVENIDA_REPETIDA = (
-    "Volviste a Conversar. ¿Qué te gustaría hacer ahora?"
+    "Volviste a Conversar. Puedo enseñarte frases, traducir palabras o contarte "
+    "de la cultura. ¿Qué te gustaría hacer ahora?"
 )
 
 
@@ -1792,26 +1798,48 @@ def _es_intento_cambio_modo(texto: str) -> bool:
     return any(palabra in t for palabra in _DISPARADORES_CAMBIO_MODO)
 
 
+def _botones_con_redireccion(modulo: str):
+    """Botones cuando el orquestador sugiere ir a otro módulo. Incluye el botón
+    de navegación (payload especial /goto_* que el frontend intercepta para
+    cambiar de vista) más opciones conversacionales para seguir en este modo.
+    """
+    if modulo == "vocabulario":
+        nav = {"title": "📚 Ir a Vocabulario", "payload": "/goto_vocabulario"}
+    elif modulo == "cuentos":
+        nav = {"title": "📖 Ir a Cuentos", "payload": "/goto_cuento"}
+    else:
+        return _botones_default()
+    return [
+        nav,
+        {"title": "👋 Cómo saludar",     "payload": "¿cómo saludo en shipibo?"},
+        {"title": "🌿 Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
+    ]
+
+
 def _botones_default():
-    """Botones genéricos del modo conversar.
-    Solo contienen acciones propias de esta sección: saludos, cultura y
-    despedidas. NO ofrecen rutas a otros módulos; la salida hacia
-    Vocabulario o Cuento es decisión del usuario desde el menú lateral
-    del frontend.
+    """Botones representativos del modo conversar (orquestado por Gemini).
+
+    Cada payload es un mensaje natural que el orquestador interpreta y rutea a
+    la herramienta correcta: frases conversacionales (saludar, agradecer, pedir
+    ayuda), cultura (RAG) e información de la app. Muestran al usuario la
+    variedad de lo que puede hacer el modo, sin saturar (5 opciones).
     """
     return [
-        {"title": "Dime un saludo",     "payload": "Hola"},
-        {"title": "Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
-        {"title": "Cómo me despido",    "payload": "¿cómo me despido en shipibo?"},
+        {"title": "👋 Cómo saludar",     "payload": "¿cómo saludo en shipibo?"},
+        {"title": "🙏 Cómo agradecer",   "payload": "¿cómo digo gracias en shipibo?"},
+        {"title": "🆘 Cómo pedir ayuda", "payload": "¿cómo pido ayuda en shipibo?"},
+        {"title": "🌿 Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
+        {"title": "💬 ¿Qué es Pishico?", "payload": "¿qué es Pishico y qué puedo hacer aquí?"},
     ]
 
 
 def _botones_tras_saludo():
-    """Tras un saludo respondido, ofrecer SOLO opciones conversacionales."""
+    """Tras un saludo, ofrecer variedad conversacional (frases + cultura)."""
     return [
-        {"title": "Otro saludo",         "payload": "Buenas tardes"},
-        {"title": "Cómo despedirme",     "payload": "Hasta luego"},
-        {"title": "Algo de la cultura",  "payload": _pregunta_cultural_aleatoria()},
+        {"title": "🙏 Cómo agradecer",   "payload": "¿cómo digo gracias en shipibo?"},
+        {"title": "🙋 Cómo presentarme", "payload": "¿cómo me presento en shipibo?"},
+        {"title": "😊 Expresar emoción", "payload": "¿cómo digo que estoy feliz en shipibo?"},
+        {"title": "🌿 Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
     ]
 
 
@@ -1824,13 +1852,14 @@ def _botones_tras_despedida():
 
 def _botones_redirigir_vocabulario():
     """Cuando el usuario escribe una palabra del corpus de vocabulario.
-    Solo opciones conversacionales: el frontend ya tiene el menú lateral
-    para que el usuario decida si quiere cambiar al módulo de Vocabulario.
+    Ofrece opciones conversacionales variadas; el frontend tiene el menú
+    lateral para cambiar al módulo de Vocabulario si el usuario lo desea.
     """
     return [
-        {"title": "Dame un saludo",     "payload": "Hola"},
-        {"title": "Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
-        {"title": "Cómo me despido",    "payload": "¿cómo me despido en shipibo?"},
+        {"title": "👋 Cómo saludar",     "payload": "¿cómo saludo en shipibo?"},
+        {"title": "🆘 Cómo pedir ayuda", "payload": "¿cómo pido ayuda en shipibo?"},
+        {"title": "🌿 Algo de la cultura", "payload": _pregunta_cultural_aleatoria()},
+        {"title": "💬 ¿Qué es Pishico?", "payload": "¿qué es Pishico y qué puedo hacer aquí?"},
     ]
 
 
@@ -2011,12 +2040,42 @@ class ActionResponderConversacion(Action):
         ultima = tracker.get_slot("ultima_intencion_conv") or ""
         ultima_respuesta = tracker.get_slot("ultima_respuesta_bot") or ""
 
-        # ── 1. Despedida ────────────────────────────────────────────────────
-        # Tiene precedencia incluso sobre escalación: si quiere cerrar, cerramos.
+        # ══════════════════════════════════════════════════════════════════
+        # ORQUESTADOR GEMINI (modo natural). Se intenta PRIMERO. Gemini decide
+        # si traduce (corpus), enseña una frase, consulta cultura (RAG) o habla
+        # de la app. Si no está disponible (sin key, sin servicio, rate limit),
+        # devuelve disponible=False y caemos al pipeline de reglas de abajo,
+        # que se mantiene INTACTO como respaldo. Nunca se rompe la conversación.
+        #
+        # Excepción: la despedida se maneja localmente ANTES del orquestador,
+        # para garantizar el cierre correcto del modo con sus botones.
+        # ══════════════════════════════════════════════════════════════════
         if _es_despedida(texto):
             mensaje = _formatear_sin_repetir(_TPL_DESPEDIDA, ultima_respuesta)
             dispatcher.utter_message(text=mensaje, buttons=_botones_tras_despedida())
             return self._cerrar(mensaje, "despedida")
+
+        try:
+            historial = self._construir_historial(tracker)
+            orq = _conversar_orquestado(texto, historial=historial)
+        except Exception as _orq_err:
+            import logging as _lg
+            _lg.getLogger(__name__).warning("orquestador falló (%s); uso reglas", _orq_err)
+            orq = {"respuesta": None, "disponible": False}
+
+        if orq.get("disponible") and orq.get("respuesta"):
+            mensaje = orq["respuesta"]
+            # Si el orquestador sugirió ir a un módulo (vocabulario/cuentos),
+            # ofrecer el botón de redirección junto a los botones normales.
+            modulo = orq.get("modulo_sugerido")
+            if modulo in ("vocabulario", "cuentos"):
+                botones = _botones_con_redireccion(modulo)
+            else:
+                botones = _botones_default()
+            dispatcher.utter_message(text=mensaje, buttons=botones)
+            return self._cerrar(mensaje, "orquestador")
+
+        # ── Si el orquestador no está disponible: pipeline de reglas (respaldo) ──
 
         # ── 2. Escalación por repetición de input idéntico ──────────────────
         # Si el usuario manda EXACTAMENTE el mismo texto 3 veces seguidas,
@@ -2218,6 +2277,29 @@ class ActionResponderConversacion(Action):
             SlotSet("ultima_intencion_conv", tipo_intencion),
             SlotSet("ultima_respuesta_bot", mensaje),
         ]
+
+    def _construir_historial(self, tracker, max_turnos: int = 6):
+        """Reconstruye el historial reciente de la conversación para dar memoria
+        multi-turno al orquestador Gemini. Recorre los eventos del tracker y
+        arma una lista [{"rol": "user"|"model", "texto": "..."}] con los últimos
+        turnos, en orden cronológico. Solo se usa dentro del modo conversar."""
+        historial = []
+        try:
+            for ev in (tracker.events or []):
+                etype = ev.get("event")
+                if etype == "user":
+                    txt = (ev.get("text") or "").strip()
+                    # ignorar los payloads tipo /conversar{...} y comandos
+                    if txt and not txt.startswith("/"):
+                        historial.append({"rol": "user", "texto": txt})
+                elif etype == "bot":
+                    txt = (ev.get("text") or "").strip()
+                    if txt:
+                        historial.append({"rol": "model", "texto": txt})
+        except Exception:
+            return []
+        # quedarnos con los últimos max_turnos*2 mensajes (user+model)
+        return historial[-(max_turnos * 2):] if historial else []
 
 # ════════════════════════════════════════════════════════════════════════════
 # SUB-MODO "APRENDER" (responde a la observación del jurado: separar aprender
