@@ -28,17 +28,10 @@
  --header-bg: #ffffff;
 }
 
-html {
- height: 100vh;
- height: 100dvh;
- overflow: hidden;
-}
-
 body {
  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
  background: var(--chat-bg);
  height: 100vh;
- height: 100dvh;
  display: flex;
  overflow: hidden;
  color: var(--text-dark);
@@ -691,7 +684,7 @@ body {
 
  /* Layout principal: columna en lugar de fila */
  body { flex-direction: column; }
- #app { flex-direction: column !important; height: 100vh; height: 100dvh; }
+ #app { flex-direction: column !important; height: 100vh; }
 
  /* Sidebar → drawer lateral deslizable (oculto por defecto) */
  #sidebar {
@@ -1764,16 +1757,22 @@ function addMessage(role, text, buttons = [], image = null) {
  b.onclick = () => {
  qr.innerHTML = '';
  const p = btn.payload || btn.title;
+ // Redirección a otro módulo desde el modo conversar: los payloads
+ // especiales /goto_vocabulario y /goto_cuento NO van a Rasa; cambian
+ // de vista en el frontend.
+ if (p === '/goto_vocabulario') { document.getElementById('mensajes').innerHTML = ''; setVista('vocab'); return; }
+ if (p === '/goto_cuento')      { document.getElementById('mensajes').innerHTML = ''; setVista('cuento'); return; }
  // Antes de EVALUAR, limpiar el chat para que el usuario no copie las
  // palabras que acaba de ver en el modo aprender o en las palabras clave.
- // Transiciones a evaluación: /aprender_vocabulario (test de vocab) y
- // /iniciar_cuento (empezar el cuento tras ver palabras clave).
  const esTransicionEvaluacion =
    p.startsWith('/aprender_vocabulario') || p.startsWith('/iniciar_cuento');
  if (esTransicionEvaluacion) {
    document.getElementById('mensajes').innerHTML = '';
  }
- enviar(p);
+ // Mostrar el título legible del botón como mensaje del usuario, no el
+ // payload crudo (/aprender_palabras{...}). El payload se envía a Rasa,
+ // pero en pantalla aparece el texto amigable.
+ enviar(p, btn.title);
  };
  qr.appendChild(b);
  });
@@ -1809,19 +1808,26 @@ function quitarTyping() {
 }
 
 // ── Envío a Rasa ────────────────────────────────────────────────────
-async function enviar(texto) {
+async function enviar(texto, textoVisible) {
  const input = document.getElementById('input-msg');
  if (texto === undefined && input.disabled) return;
  let msg = (texto !== undefined ? texto : input.value).trim();
  if (!msg) return;
  if (texto === undefined) input.value = '';
 
+ // Texto que se MUESTRA en pantalla como mensaje del usuario:
+ // - Si viene textoVisible (clic en botón), se usa el título legible.
+ // - Si el mensaje es un payload crudo (/comando{...}) sin texto visible,
+ //   no se muestra nada (se camufla), para no exponer la sintaxis interna.
+ // - Si es texto normal del usuario, se muestra tal cual.
+ const esPayload = msg.startsWith('/');
+ const visible = textoVisible !== undefined ? textoVisible : (esPayload ? null : msg);
+
  // En modo conversación libre, envolvemos el texto plano como payload
  // /conversar{"texto_usuario":"..."} para que la acción lo reciba como slot.
- // Los payloads que ya empiezan con '/' (clics en botones) pasan tal cual.
  const enConversar = window._enModoConversar === true;
  if (enConversar && !msg.startsWith('/')) {
- addMessage('user', msg);
+ addMessage('user', visible !== null ? visible : msg);
  const limpio = msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
  const payload = `/conversar{"texto_usuario":"${limpio}"}`;
  mostrarTyping();
@@ -1841,7 +1847,7 @@ async function enviar(texto) {
  return;
  }
 
- addMessage('user', msg);
+ if (visible !== null) addMessage('user', visible);
  mostrarTyping();
 
  try {

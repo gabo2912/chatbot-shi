@@ -2545,7 +2545,7 @@ _TRAD_CUENTOS = {
     "xoboati":    "construir la casa",
     "poxati":     "tumbar",
     "repinti":    "puerto",
-    "pista":       "fiesta",
+    "pishta":       "fiesta",
     "joni":        "hombre",
     "xontako":      "señorita",
 }
