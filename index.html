@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Pishico Bot — Aprendizaje Shipibo-Konibo</title>
 <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
 <style>
@@ -28,10 +28,17 @@
  --header-bg: #ffffff;
 }
 
+html {
+ height: 100vh;
+ height: 100dvh;
+ overflow: hidden;
+}
+
 body {
  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
  background: var(--chat-bg);
  height: 100vh;
+ height: 100dvh;
  display: flex;
  overflow: hidden;
  color: var(--text-dark);
@@ -684,7 +691,7 @@ body {
 
  /* Layout principal: columna en lugar de fila */
  body { flex-direction: column; }
- #app { flex-direction: column !important; height: 100vh; }
+ #app { flex-direction: column !important; height: 100vh; height: 100dvh; }
 
  /* Sidebar → drawer lateral deslizable (oculto por defecto) */
  #sidebar {
