@@ -1,0 +1,14 @@
+Respaldo Pishico — 2026-07-18 13:32
+
+usuarios: 20 registros
+   rango fecha_creacion: 2026-06-28 23:58:32.105397 → 2026-06-28 23:58:32.174352
+sesiones: 43 registros
+   rango fecha_inicio: 2026-06-29 00:02:34.044238 → 2026-07-18 15:49:18.708698
+progreso_vocabulario: 643 registros
+   rango fecha: 2026-06-29 00:36:33.337473 → 2026-07-18 16:15:56.243287
+progreso_cuento: 135 registros
+   rango fecha: 2026-06-29 02:07:57.558221 → 2026-07-18 16:07:02.441894
+
+
+En carpeta Drive 2026-1/Tesis/RespaldoBD 18/07/2026
+Participantes con actividad en vocabulario: 14
